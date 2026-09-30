@@ -108,7 +108,7 @@ Tout est fictif : les numéros sont pris dans la tranche 06 39 98 xx xx, réserv
 2. Ouvrir `/app/` et créer le compte SALW. Il n'y a pas de clé d'installation : **créez le compte juste après la mise en ligne**.
 3. Tâche cron toutes les 5 minutes : `php /chemin/cron.php`. Elle envoie aussi les rapports mensuels.
 4. `prive/config.php` (renseigner **`url_site`**, sinon la tâche cron ne peut pas construire les liens des SMS et du rapport, et le rapport n'est pas envoyé) :
-   - `mode_envoi` : laisser `simulation` tant que les SMS réels ne sont pas branchés ;
+   - `mode_envoi` : laisser `simulation` tant que les SMS réels ne sont pas branchés (les démonstrations restent toujours en simulation, même en mode `reel`) ;
    - `twilio` : compte Twilio pour les SMS ;
    - `cle_webhook` : clé du signalement d'appel manqué ;
    - `ia_cle` : clé Anthropic pour l'assistant.

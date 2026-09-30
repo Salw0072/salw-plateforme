@@ -190,7 +190,7 @@ function envoyer_rapport(array $c, string $mois, string $dest = ''): array
     $r = rapport_donnees($c, $mois);
     $statut = 'simule';
     $erreur = '';
-    if (cfg('mode_envoi') === 'reel') {
+    if (cfg('mode_envoi') === 'reel' && !(int)$c['demo']) {
         $ok = envoyer_email_html($dest, rapport_objet($c, $mois), rapport_html($c, $r), rapport_texte($c, $r));
         $statut = $ok ? 'envoye' : 'echec';
         $erreur = $ok ? '' : 'mail() a échoué';

@@ -77,8 +77,8 @@ function entete(string $titre, string $actif): void
         . '<form method="post" action="' . h(url('deconnexion')) . '">' . champ_csrf() . '<button class="lien">Se déconnecter</button></form></div></aside>'
         . '<div class="contenu"><header class="barre"><button class="menu" id="menu" aria-expanded="false" aria-controls="nav">' . ico('M3 5h14M3 10h14M3 15h14') . '<span class="sr">Menu</span></button>'
         . ($c ? '<a href="' . h(lien_reservation($c)) . '" target="_blank" rel="noopener">Page de réservation ↗</a>' : '') . '</header><main>';
-    if (cfg('mode_envoi') !== 'reel') {
-        echo '<div class="msg info">Mode simulation : aucun SMS ni e-mail ne part. Les messages s\'affichent dans « Messages envoyés ».</div>';
+    if (cfg('mode_envoi') !== 'reel' || ($c && (int)$c['demo'])) {
+        echo '<div class="msg info">' . (cfg('mode_envoi') === 'reel' ? 'Démonstration : toujours en simulation, ' : 'Mode simulation : ') . 'aucun SMS ni e-mail ne part. Les messages s\'affichent dans « Messages envoyés ».</div>';
     }
     if (!empty($_SESSION['flash'])) {
         [$t, $m] = $_SESSION['flash'];

@@ -34,7 +34,8 @@ function envoyer(array $c, ?array $patient, string $destinataire, string $type, 
     }
     $statut = 'simule';
     $erreur = '';
-    if (cfg('mode_envoi') === 'reel') {
+    // Les démonstrations restent toujours en simulation : leurs numéros sont fictifs.
+    if (cfg('mode_envoi') === 'reel' && !(int)$c['demo']) {
         [$ok, $erreur] = $canal === 'sms' ? envoyer_sms_twilio($destinataire, $texte) : envoyer_email($c, $destinataire, $texte);
         $statut = $ok ? 'envoye' : 'echec';
     }
