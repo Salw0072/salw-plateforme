@@ -1,0 +1,14 @@
+# Réglages et clés : prive/config.php reste sur le serveur (modèle versionné : prive/config.exemple.php).
+prive/config.php
+
+# Données : réservations, comptes, conversations, base SQLite, logos et photos. Jamais versionnées.
+prive/donnees/
+
+# prive/vendor/ EST versionné : l'hébergement ne lance pas « composer install » au déploiement.
+
+# Fichiers de travail et secrets locaux.
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db
