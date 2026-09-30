@@ -49,7 +49,7 @@ function db(): PDO
 function schema(PDO $pdo): void
 {
     $version = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-    if ($version >= 6) {
+    if ($version >= 7) {
         return;
     }
     if ($version >= 1) {
@@ -65,7 +65,10 @@ function schema(PDO $pdo): void
         if ($version < 5) {
             migration_5($pdo);
         }
-        migration_6($pdo);
+        if ($version < 6) {
+            migration_6($pdo);
+        }
+        migration_7($pdo);
         return;
     }
     $pdo->exec(<<<'SQL'
@@ -144,6 +147,7 @@ SQL
     migration_4($pdo);
     migration_5($pdo);
     migration_6($pdo);
+    migration_7($pdo);
 }
 
 /** Version 2 : plateforme multi-métier (métier du client, questions de réservation, devis). */
@@ -213,6 +217,17 @@ ALTER TABLE cliniques ADD COLUMN formule TEXT DEFAULT '';
 ALTER TABLE cliniques ADD COLUMN engagement INTEGER DEFAULT 1;
 ALTER TABLE cliniques ADD COLUMN prix_negocie REAL DEFAULT 0;
 PRAGMA user_version = 6;
+SQL
+    );
+}
+
+/** Version 7 : réinitialisation du mot de passe par lien (empreinte du jeton et expiration). */
+function migration_7(PDO $pdo): void
+{
+    $pdo->exec(<<<'SQL'
+ALTER TABLE utilisateurs ADD COLUMN reinit_empreinte TEXT DEFAULT '';
+ALTER TABLE utilisateurs ADD COLUMN reinit_expire INTEGER DEFAULT 0;
+PRAGMA user_version = 7;
 SQL
     );
 }

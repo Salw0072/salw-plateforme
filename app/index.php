@@ -30,6 +30,15 @@ if ($page === 'deconnexion') {
     }
     aller('connexion');
 }
+// Mot de passe oublié : accessible sans être connecté.
+if ($page === 'oubli') {
+    page_oubli();
+    exit;
+}
+if ($page === 'nouveaumdp') {
+    page_nouveau_mdp();
+    exit;
+}
 $u = moi();
 if (!$u || $page === 'connexion') {
     if ($u) {

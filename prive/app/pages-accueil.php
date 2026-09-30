@@ -63,10 +63,121 @@ function page_connexion(): void
     } else {
         echo '<h1>Connexion</h1><form method="post" class="form" action="' . h(url('connexion')) . '">' . champ_csrf()
             . '<label>Adresse e-mail<input name="identifiant" type="email" required autofocus autocomplete="username"></label>'
-            . '<label>Mot de passe<input name="mdp" type="password" required autocomplete="current-password"></label><button class="btn plein">Se connecter</button></form>';
+            . '<label>Mot de passe<input name="mdp" type="password" required autocomplete="current-password"></label><button class="btn plein">Se connecter</button></form>'
+            . '<p class="petit"><a href="' . h(url('oubli')) . '">Mot de passe oublié ?</a></p>';
     }
     echo '</div>';
     pied();
+}
+
+// --- Mot de passe oublié ------------------------------------------------------------------
+// Lien envoyé à l'adresse du compte, valable 1 heure et utilisable une seule fois. Seule son
+// empreinte (SHA-256) est conservée. La réponse est la même, que l'adresse existe ou non.
+
+const REINIT_DUREE = 3600;
+
+function page_oubli(): void
+{
+    $envoye = false;
+    $erreur = '';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Cinq demandes par heure et par adresse IP.
+        $cle = 'oubli:' . hash('sha256', (string)($_SERVER['REMOTE_ADDR'] ?? '')) . ':' . gmdate('YmdH');
+        db()->prepare('INSERT INTO compteurs (cle, valeur, maj) VALUES (?, 1, ?) ON CONFLICT(cle) DO UPDATE SET valeur = valeur + 1')->execute([$cle, gmdate('Y-m-d')]);
+        if ((int)valeur('SELECT valeur FROM compteurs WHERE cle = ?', [$cle]) > 5) {
+            $erreur = 'Trop de demandes depuis votre connexion : réessayez dans une heure.';
+        } else {
+            $u = une('SELECT * FROM utilisateurs WHERE identifiant = ? AND actif = 1', [mb_strtolower(trim((string)($_POST['identifiant'] ?? '')))]);
+            if ($u) {
+                $jeton = bin2hex(random_bytes(32));
+                executer('UPDATE utilisateurs SET reinit_empreinte = ?, reinit_expire = ? WHERE id = ?', [hash('sha256', $jeton), time() + REINIT_DUREE, $u['id']]);
+                $lien = url_base() . '/app/?p=nouveaumdp&t=' . $jeton;
+                $voie = envoyer_mail_compte($u['identifiant'], 'Réinitialisation de votre mot de passe · Plateforme SALW',
+                    'Bonjour ' . ($u['nom'] ?: '') . ",\n\nPour choisir un nouveau mot de passe pour la Plateforme SALW, ouvrez ce lien :\n\n" . $lien
+                    . "\n\nIl est valable 1 heure et ne sert qu'une fois.\n\nSi vous n'avez rien demandé, ignorez ce message : votre mot de passe actuel reste valable.\n\nSALW CONSULTING");
+                journaliser('mdp_oubli_' . $voie, $u['identifiant'], $u['clinique_id'] !== null ? (int)$u['clinique_id'] : null);
+            }
+            $envoye = true;
+        }
+    }
+    entete('Mot de passe oublié', '');
+    echo '<div class="carte-seule"><div class="marque">SALW <span>PLATEFORME</span></div><h1>Mot de passe oublié</h1>';
+    if ($envoye) {
+        echo '<div class="msg ok" role="status">Si un compte correspond à cette adresse, un e-mail avec un lien de réinitialisation vient de partir. Il est valable 1 heure. Pensez à regarder dans les indésirables.</div>';
+    } else {
+        echo ($erreur !== '' ? '<div class="msg erreur" role="alert">' . h($erreur) . '</div>' : '')
+            . '<p>Saisissez l\'adresse e-mail de votre compte : vous recevrez un lien pour choisir un nouveau mot de passe.</p>'
+            . '<form method="post" class="form" action="' . h(url('oubli')) . '">' . champ_csrf()
+            . '<label>Adresse e-mail<input name="identifiant" type="email" required autofocus autocomplete="username"></label>'
+            . '<button class="btn plein">Recevoir le lien</button></form>';
+    }
+    echo '<p class="petit"><a href="' . h(url('connexion')) . '">Retour à la connexion</a></p></div>';
+    pied();
+}
+
+function compte_par_jeton(string $jeton): ?array
+{
+    if (!preg_match('/^[a-f0-9]{64}$/', $jeton)) {
+        return null;
+    }
+    $u = une("SELECT * FROM utilisateurs WHERE reinit_empreinte = ? AND reinit_empreinte != '' AND reinit_expire > ? AND actif = 1", [hash('sha256', $jeton), time()]);
+    return $u ?: null;
+}
+
+function page_nouveau_mdp(): void
+{
+    $jeton = (string)($_POST['t'] ?? $_GET['t'] ?? '');
+    $compte = compte_par_jeton($jeton);
+    $erreur = '';
+    if ($compte && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $mdp = (string)($_POST['mdp'] ?? '');
+        if (mb_strlen($mdp) < 12) {
+            $erreur = 'Le mot de passe doit faire au moins 12 caractères.';
+        } elseif ($mdp !== (string)($_POST['mdp2'] ?? '')) {
+            $erreur = 'Les deux saisies ne correspondent pas.';
+        } else {
+            executer("UPDATE utilisateurs SET hash = ?, reinit_empreinte = '', reinit_expire = 0, echecs = 0, bloque_jusqua = 0, changer_mdp = 0 WHERE id = ?", [password_hash($mdp, PASSWORD_DEFAULT), $compte['id']]);
+            journaliser('mdp_reinitialise_par_lien', $compte['identifiant'], $compte['clinique_id'] !== null ? (int)$compte['clinique_id'] : null);
+            flash('ok', 'Mot de passe enregistré : connectez-vous avec le nouveau.');
+            aller('connexion');
+        }
+    }
+    entete('Nouveau mot de passe', '');
+    echo '<div class="carte-seule"><div class="marque">SALW <span>PLATEFORME</span></div><h1>Nouveau mot de passe</h1>';
+    if (!$compte) {
+        echo '<div class="msg erreur" role="alert">Ce lien n\'est plus valable : il a expiré ou a déjà servi.</div>'
+            . '<p><a class="btn plein" href="' . h(url('oubli')) . '">Demander un nouveau lien</a></p>';
+    } else {
+        echo ($erreur !== '' ? '<div class="msg erreur" role="alert">' . h($erreur) . '</div>' : '')
+            . '<p>Compte : <b>' . h($compte['identifiant']) . '</b></p>'
+            . '<form method="post" class="form" action="' . h(url('nouveaumdp')) . '">' . champ_csrf() . '<input type="hidden" name="t" value="' . h($jeton) . '">'
+            . '<input type="text" name="identifiant" value="' . h($compte['identifiant']) . '" autocomplete="username" hidden>'
+            . '<label>Nouveau mot de passe (12 caractères minimum)<input name="mdp" type="password" required minlength="12" autofocus autocomplete="new-password"></label>'
+            . '<label>Confirmer<input name="mdp2" type="password" required minlength="12" autocomplete="new-password"></label>'
+            . '<button class="btn plein">Enregistrer</button></form>';
+    }
+    echo '</div>';
+    pied();
+}
+
+/**
+ * E-mail de compte (mot de passe oublié). Il part toujours, même en mode simulation : il sert à
+ * l'équipe, pas aux clients. Si l'envoi échoue (poste local sans serveur de messagerie), le message
+ * est déposé dans prive/donnees/boite-test/, inaccessible depuis le web. Renvoie 'envoye' ou 'depose'.
+ */
+function envoyer_mail_compte(string $a, string $sujet, string $texte): string
+{
+    $exp = (string)cfg('email_expediteur');
+    $entetes = "From: =?UTF-8?B?" . base64_encode('SALW CONSULTING') . "?= <{$exp}>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64";
+    if (@mail($a, '=?UTF-8?B?' . base64_encode($sujet) . '?=', chunk_split(base64_encode($texte)), $entetes)) {
+        return 'envoye';
+    }
+    $dossier = dirname(__DIR__) . '/donnees/boite-test';
+    if (!is_dir($dossier)) {
+        @mkdir($dossier, 0750, true);
+    }
+    @file_put_contents($dossier . '/' . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '.txt', "À : {$a}\nObjet : {$sujet}\n\n{$texte}\n");
+    return 'depose';
 }
 
 function page_compte(): void
