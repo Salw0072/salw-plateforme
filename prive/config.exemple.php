@@ -25,7 +25,7 @@ return [
 
     // Assistant IA des patients (Claude). Vide : réponses tirées de la FAQ de la clinique.
     'ia_cle'    => '',
-    'ia_modele' => 'claude-opus-5',
+    'ia_modele' => 'claude-opus-5-5',
     'ia_effort' => 'low',
     'ia_max_jour' => 500,
 

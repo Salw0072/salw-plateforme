@@ -22,7 +22,7 @@ const FORMULES = [
 /** Coefficient de prix par métier, selon la valeur d'un rendez-vous (la mise en place n'est pas ajustée : c'est le même travail). */
 const COEF_METIERS = ['sante' => 1.0, 'coach' => 1.0, 'artisan' => 1.1, 'garage' => 1.2, 'ecole' => 1.3, 'immobilier' => 1.4, 'juridique' => 1.4];
 
-const SMS_SUPPLEMENT = 0.09;          // € HT par SMS au-delà du forfait (à caler sur le tarif Twilio réel)
+const SMS_SUPPLEMENT = 0.15;          // € HT par SMS au-delà du forfait (coût Twilio : environ 0,07 € en France, 0,10 € en Belgique)
 const MAJORATION_SANS_ENGAGEMENT = 0.20;
 
 function coef_metier(string $metier): float

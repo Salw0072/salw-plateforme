@@ -378,16 +378,17 @@ function reglages_defaut(?array $c = null): array
 function textes_defaut(?array $c = null): array
 {
     $t = [
-        'confirmation' => "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. {structure}. Gérer ou annuler : {lien}",
-        'rappel_j2'    => "Rappel {structure} : rendez-vous le {date} à {heure}. Merci de confirmer, ou d'annuler pour libérer le créneau : {lien}",
-        'rappel_j1'    => "{prenom}, votre rendez-vous est demain à {heure}. Confirmez, ou libérez le créneau pour quelqu'un d'autre : {lien}",
-        'rappel_h3'    => "{structure} : à tout à l'heure, {heure}. {adresse}",
-        'offre_attente' => "Bonne nouvelle {prenom} : un créneau s'est libéré le {date} à {heure} chez {structure}. Le premier qui confirme l'obtient : {lien}",
-        'appel_manque' => "{structure} : désolés d'avoir manqué votre appel. Prenez rendez-vous en ligne en 1 minute : {lien}",
-        'avis'         => "Merci de votre confiance, {prenom}. Votre avis sur {structure} nous aide beaucoup : {lien}",
-        'absence'      => "{prenom}, nous ne vous avons pas vu aujourd'hui. Reprenez rendez-vous quand vous le souhaitez : {lien}",
-        'reactivation' => "Bonjour {prenom}, {structure} vous propose de faire le point : prenez rendez-vous en ligne {lien}. STOP pour ne plus recevoir ces messages.",
-        'relance_devis' => "Bonjour {prenom}, avez-vous pu regarder notre devis « {devis} » ? Vous pouvez l'accepter en un clic ou nous poser vos questions : {lien}",
+        // Courts à dessein : un SMS = 160 caractères, dont environ 73 pour le lien. Au-delà, chaque SMS coûte double.
+        'confirmation'  => "RDV confirmé le {date} à {heure}, {structure}. Gérer : {lien}",
+        'rappel_j2'     => "Rappel RDV {date} {heure}, {structure}. Confirmer/annuler : {lien}",
+        'rappel_j1'     => "RDV demain {heure}, {structure}. Confirmer/annuler : {lien}",
+        'rappel_h3'     => "{structure} : à tout à l'heure, {heure}. {adresse}",
+        'offre_attente' => "Créneau libre {date} {heure}, {structure}. 1er à confirmer : {lien}",
+        'appel_manque'  => "{structure} : désolés, appel manqué. Réservez en ligne : {lien}",
+        'avis'          => "Merci {prenom} ! Votre avis sur {structure} : {lien}",
+        'absence'       => "{prenom}, on ne vous a pas vu. Reprenez RDV quand vous voulez : {lien}",
+        'reactivation'  => "{structure} vous propose un point : {lien} Répondez STOP pour arrêter",
+        'relance_devis' => "Votre devis : {devis}. Une question ? Acceptez en 1 clic : {lien}",
     ];
     return $c ? array_merge($t, metier($c)['textes']) : $t;
 }

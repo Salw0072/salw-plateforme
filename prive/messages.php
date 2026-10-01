@@ -29,6 +29,9 @@ function rediger(array $c, string $type, array $vars): string
 function envoyer(array $c, ?array $patient, string $destinataire, string $type, string $texte, ?int $rdvId = null): int
 {
     $canal = strpos($destinataire, '@') !== false ? 'email' : 'sms';
+    if ($canal === 'sms') {
+        $texte = sms_gsm($texte);
+    }
     if ($patient && (int)$patient['stop_sms'] === 1 && $canal === 'sms' && $type === 'reactivation') {
         return 0;
     }
@@ -78,6 +81,22 @@ function envoyer_email(array $c, string $a, string $texte): array
     $entetes = "From: =?UTF-8?B?" . base64_encode($c['nom']) . "?= <{$exp}>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64";
     $ok = @mail($a, '=?UTF-8?B?' . base64_encode($c['nom']) . '?=', chunk_split(base64_encode($texte)), $entetes);
     return [$ok, $ok ? '' : 'mail() a échoué'];
+}
+
+/**
+ * Remplace les caractères hors alphabet SMS standard (GSM 7 bits) par leur équivalent : un seul « ê »
+ * ou un guillemet « » ferait passer tout le message à 70 caractères par SMS, donc à 2 ou 3 SMS facturés.
+ * Les accents courants du français (é è à ù) font partie de l'alphabet et sont conservés.
+ */
+function sms_gsm(string $t): string
+{
+    $t = strtr($t, [
+        'â' => 'a', 'ê' => 'e', 'ë' => 'e', 'î' => 'i', 'ï' => 'i', 'ô' => 'o', 'û' => 'u', 'ç' => 'c', 'ÿ' => 'y',
+        'À' => 'A', 'Â' => 'A', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E', 'Î' => 'I', 'Ï' => 'I', 'Ô' => 'O', 'Ù' => 'U', 'Û' => 'U',
+        'œ' => 'oe', 'Œ' => 'OE', '°' => 'o', '«' => '"', '»' => '"', '“' => '"', '”' => '"', '‘' => "'", '’' => "'", '…' => '...',
+        '–' => '-', '—' => '-', "\u{00A0}" => ' ', "\u{202F}" => ' ',
+    ]);
+    return trim((string)preg_replace('/ {2,}/', ' ', $t));
 }
 
 /** Nombre de SMS facturés pour un texte (GSM 7 bits : 160 / 153 ; avec accents hors GSM : 70 / 67). */

@@ -15,12 +15,20 @@
   document.querySelectorAll("textarea[data-compteur]").forEach(function (t) {
     var sortie = t.parentNode.querySelector(".compteur");
     var gsm = /^[@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./0-9:;<=>?¡A-ZÄÖÑÜ§¿a-zäöñüà^{}\\[~\]|€]*$/;
+    // Même conversion qu'à l'envoi (sms_gsm) : â ê î ô û ç œ « » ’ … deviennent des caractères standard.
+    var conv = { "â": "a", "ê": "e", "ë": "e", "î": "i", "ï": "i", "ô": "o", "û": "u", "ç": "c", "ÿ": "y", "À": "A", "Â": "A", "È": "E", "Ê": "E", "Ë": "E", "Î": "I", "Ï": "I", "Ô": "O", "Ù": "U", "Û": "U",
+      "œ": "oe", "Œ": "OE", "°": "o", "«": "\"", "»": "\"", "“": "\"", "”": "\"", "‘": "'", "’": "'", "…": "...", "–": "-", "—": "-", " ": " ", " ": " " };
     var maj = function () {
-      var n = t.value.length, uni = !gsm.test(t.value);
+      var v = t.value.replace(/[âêëîïôûçÿÀÂÈÊËÎÏÔÙÛœŒ°«»“”‘’…–—  ]/g, function (c) { return conv[c]; });
+      // Estimation du message réel : chaque variable remplacée par une longueur type (le lien fait environ 73 caractères).
+      var types = { lien: 73, structure: 25, date: 19, heure: 5, prenom: 9, adresse: 30, devis: 25, praticien: 15 };
+      v = v.replace(/\{([a-z]+)\}/g, function (x, k) { return new Array((types[k] || x.length) + 1).join("x"); });
+      var n = v.length, uni = !gsm.test(v);
       var seg = uni ? (n <= 70 ? 1 : Math.ceil(n / 67)) : (n <= 160 ? 1 : Math.ceil(n / 153));
-      sortie.textContent = n + " caractères · " + seg + " SMS (hors lien)" + (uni ? " · caractères spéciaux : 70 par SMS" : "");
+      sortie.textContent = "Environ " + n + " caractères une fois envoyé · " + seg + " SMS facturé" + (seg > 1 ? "s" : "") + (seg > 1 ? " : raccourcissez pour tenir en 1 SMS" : "") + (uni ? " · caractère spécial : 70 par SMS" : "");
     };
     t.addEventListener("input", maj);
+    maj();
   });
   // Cartes d'offres : les prix suivent le métier choisi dans le même formulaire.
   document.querySelectorAll("fieldset[data-prix]").forEach(function (fs) {

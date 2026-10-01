@@ -30,10 +30,7 @@ function metiers(): array
                 'texte' => "Je ne peux pas donner d'avis médical. Le mieux est d'en parler avec un médecin : prenez rendez-vous sur cette page, ou appelez-nous."],
             'urgence' => true,
             'modules' => [],
-            'textes' => [
-                'rappel_j1' => "{prenom}, votre rendez-vous est demain à {heure}. Confirmez, ou libérez le créneau pour un autre patient : {lien}",
-                'avis' => "Merci de votre visite chez {structure}, {prenom}. Votre avis aide d'autres patients : {lien}",
-            ],
+            'textes' => [],
             'questions' => [],
             'demo' => ['nom' => '(démo) Centre médical des Tilleuls', 'adresse' => '12 avenue des Tilleuls', 'ville' => '69003 Lyon', 'pays' => 'FR', 'valeur' => 30,
                 'pros' => [['Claire Morel', 'Dr'], ['Thomas Petit', 'Dr'], ['Sophie Laurent', 'Dr']],
@@ -50,10 +47,9 @@ function metiers(): array
             'urgence' => false,
             'modules' => ['appel_manque' => ['delai_min' => 1], 'liste_attente' => ['actif' => true], 'avis' => ['actif' => false], 'relance_devis' => ['actif' => true]],
             'textes' => [
-                'confirmation' => "Bonjour {prenom}, votre rendez-vous du {date} à {heure} au cabinet est confirmé. {structure}. Préparez les pièces utiles. Gérer ou annuler : {lien}",
-                'appel_manque' => "{structure} : nous étions en rendez-vous et n'avons pas pu vous répondre. Réservez un créneau en ligne : {lien}",
-                'relance_devis' => "Bonjour {prenom}, avez-vous pu examiner notre proposition d'honoraires « {devis} » ? Vous pouvez l'accepter en ligne ou nous poser vos questions : {lien}",
-                'reactivation' => "Bonjour {prenom}, {structure} reste à votre disposition pour faire le point sur votre situation : {lien}. STOP pour ne plus recevoir ces messages.",
+                'appel_manque' => "{structure} : en RDV, nous n'avons pu répondre. Réservez en ligne : {lien}",
+                'relance_devis' => "Votre proposition : {devis}. Une question ? Acceptez en 1 clic : {lien}",
+                'reactivation' => "{structure} reste à votre disposition : {lien} Répondez STOP pour arrêter",
             ],
             'questions' => [
                 ['cle' => 'domaine', 'libelle' => 'Domaine concerné', 'type' => 'choix', 'options' => ['Famille', 'Travail', 'Immobilier', 'Entreprise, commercial', 'Fiscal, comptable', 'Pénal', 'Autre']],
@@ -74,8 +70,8 @@ function metiers(): array
             'urgence' => false,
             'modules' => ['appel_manque' => ['delai_min' => 1], 'rappel_h3' => ['actif' => true], 'reactivation' => ['mois' => 6]],
             'textes' => [
-                'appel_manque' => "{structure} : désolés, nous étions en visite. Un conseiller vous répond vite : réservez un créneau ici {lien}",
-                'reactivation' => "Bonjour {prenom}, où en est votre projet immobilier ? {structure} peut vous aider : {lien}. STOP pour ne plus recevoir ces messages.",
+                'appel_manque' => "{structure} : en visite, appel manqué. Réservez en ligne : {lien}",
+                'reactivation' => "Où en est votre projet ? {structure} : {lien} Répondez STOP pour arrêter",
             ],
             'questions' => [
                 ['cle' => 'projet', 'libelle' => 'Votre projet', 'type' => 'choix', 'options' => ['Acheter', 'Vendre', 'Louer', 'Mettre en location', 'Faire estimer un bien']],
@@ -96,10 +92,9 @@ function metiers(): array
             'urgence' => false,
             'modules' => ['appel_manque' => ['delai_min' => 1], 'liste_attente' => ['actif' => false], 'relance_devis' => ['actif' => true], 'reactivation' => ['mois' => 12]],
             'textes' => [
-                'appel_manque' => "{structure} : nous sommes sur un chantier et n'avons pas pu décrocher. Réservez une intervention ou un devis en ligne : {lien}",
-                'confirmation' => "Bonjour {prenom}, votre intervention du {date} à {heure} est confirmée. {structure}. Gérer ou annuler : {lien}",
-                'avis' => "Merci de nous avoir fait confiance, {prenom}. Un avis sur {structure} nous aide beaucoup : {lien}",
-                'reactivation' => "Bonjour {prenom}, pensez à l'entretien annuel de votre installation. {structure} : {lien}. STOP pour ne plus recevoir ces messages.",
+                'appel_manque' => "{structure} : sur un chantier, appel manqué. Réservez en ligne : {lien}",
+                'confirmation' => "Intervention {date} {heure} confirmée, {structure}. Gérer : {lien}",
+                'reactivation' => "Entretien annuel à prévoir ? {structure} : {lien} Répondez STOP pour arrêter",
             ],
             'questions' => [
                 ['cle' => 'travaux', 'libelle' => 'Nature des travaux', 'type' => 'choix', 'options' => ['Dépannage', 'Entretien', 'Devis pour travaux', 'Installation neuve']],
@@ -121,9 +116,8 @@ Odeur de gaz : sortez sans actionner d'interrupteur et appelez le 112 depuis l'e
             'urgence' => false,
             'modules' => ['relance_devis' => ['actif' => true], 'reactivation' => ['mois' => 4]],
             'textes' => [
-                'confirmation' => "Bonjour {prenom}, votre séance du {date} à {heure} est confirmée. {structure}. Gérer ou annuler : {lien}",
-                'relance_devis' => "Bonjour {prenom}, avez-vous pu regarder la proposition « {devis} » ? Je reste disponible pour en parler : {lien}",
-                'reactivation' => "Bonjour {prenom}, où en êtes-vous depuis notre dernière séance ? Réservez un point quand vous voulez : {lien}. STOP pour ne plus recevoir ces messages.",
+                'relance_devis' => "Votre proposition : {devis}. Une question ? Acceptez en 1 clic : {lien}",
+                'reactivation' => "Envie de faire le point ? {structure} : {lien} Répondez STOP pour arrêter",
             ],
             'questions' => [
                 ['cle' => 'objectif', 'libelle' => 'Votre objectif principal', 'type' => 'texte'],
@@ -144,8 +138,7 @@ Odeur de gaz : sortez sans actionner d'interrupteur et appelez le 112 depuis l'e
             'urgence' => false,
             'modules' => ['avis' => ['actif' => false], 'absence' => ['actif' => true], 'reactivation' => ['mois' => 3, 'intervalle_mois' => 3]],
             'textes' => [
-                'confirmation' => "Bonjour {prenom}, votre rendez-vous d'admission du {date} à {heure} est confirmé. {structure}. Gérer ou annuler : {lien}",
-                'reactivation' => "Bonjour {prenom}, les inscriptions pour la prochaine rentrée sont ouvertes chez {structure}. Réservez un rendez-vous : {lien}. STOP pour ne plus recevoir ces messages.",
+                'reactivation' => "Inscriptions ouvertes chez {structure} : {lien} Répondez STOP pour arrêter",
             ],
             'questions' => [
                 ['cle' => 'niveau', 'libelle' => 'Niveau ou formation visée', 'type' => 'texte', 'requis' => true],
@@ -166,9 +159,7 @@ Odeur de gaz : sortez sans actionner d'interrupteur et appelez le 112 depuis l'e
             'urgence' => false,
             'modules' => ['relance_devis' => ['actif' => true], 'reactivation' => ['mois' => 11, 'intervalle_mois' => 11]],
             'textes' => [
-                'confirmation' => "Bonjour {prenom}, votre rendez-vous atelier du {date} à {heure} est confirmé. {structure}. Gérer ou annuler : {lien}",
-                'relance_devis' => "Bonjour {prenom}, votre devis « {devis} » est prêt. Voulez-vous que nous lancions l'intervention ? Réponse en un clic : {lien}",
-                'reactivation' => "Bonjour {prenom}, votre révision annuelle approche. {structure} vous propose un créneau : {lien}. STOP pour ne plus recevoir ces messages.",
+                'reactivation' => "Révision annuelle à prévoir ? {structure} : {lien} Répondez STOP pour arrêter",
             ],
             'questions' => [
                 ['cle' => 'immatriculation', 'libelle' => 'Immatriculation', 'type' => 'texte', 'requis' => true],
