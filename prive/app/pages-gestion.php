@@ -274,7 +274,7 @@ function page_cliniques(): void
         $a = (string)($_POST['action'] ?? '');
         if ($a === 'choisir') {
             $_SESSION['clinique_id'] = (int)$_POST['id'];
-            aller('tableau');
+            aller(($_POST['vers'] ?? '') === 'abonnement' ? 'abonnement' : 'tableau');
         } elseif ($a === 'demo') {
             $m = array_key_exists($_POST['metier'] ?? '', metiers()) ? (string)$_POST['metier'] : 'sante';
             $c = creer_demo($m);
@@ -290,14 +290,18 @@ function page_cliniques(): void
                 flash('erreur', 'Nom manquant ou déjà utilisé.');
             } else {
                 $m = array_key_exists($_POST['metier'] ?? '', metiers()) ? (string)$_POST['metier'] : 'sante';
-                $id = inserer('INSERT INTO cliniques (slug, nom, pays, fuseau, metier, cree_le) VALUES (?, ?, ?, ?, ?, ?)', [$slug, $nom, $_POST['pays'] === 'BE' ? 'BE' : 'FR', $_POST['pays'] === 'BE' ? 'Europe/Brussels' : 'Europe/Paris', $m, iso(time())]);
+                [$formule, $engagement, $prixNegocie] = lire_offre($_POST);
+                $id = inserer('INSERT INTO cliniques (slug, nom, pays, fuseau, metier, formule, engagement, prix_negocie, cree_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$slug, $nom, $_POST['pays'] === 'BE' ? 'BE' : 'FR', $_POST['pays'] === 'BE' ? 'Europe/Brussels' : 'Europe/Paris', $m, $formule, $engagement, $prixNegocie, iso(time())]);
                 // Types de rendez-vous et FAQ du modèle du métier, à adapter.
                 foreach (metiers()[$m]['demo']['types'] as [$lib, $duree, $enLigne]) {
                     inserer('INSERT INTO types_rdv (clinique_id, libelle, duree, en_ligne) VALUES (?, ?, ?, ?)', [$id, $lib, $duree, $enLigne]);
                 }
                 $_SESSION['clinique_id'] = $id;
-                journaliser('clinique_creee', $nom . ' (' . $m . ')', $id);
-                flash('ok', 'Client créé (' . metiers()[$m]['libelle'] . ') : ajoutez ses ' . metiers()[$m]['mots']['pros'] . ' et leurs horaires.');
+                journaliser('clinique_creee', $nom . ' (' . $m . ', ' . libelle_formule($formule) . ')', $id);
+                $c = clinique($id);
+                $p = prix_mensuel($c);
+                flash('ok', 'Client créé (' . metiers()[$m]['libelle'] . ', offre ' . libelle_formule($formule) . ($p > 0 ? ' à ' . montant($p) . ' HT par mois' : ', prix à fixer') . ') : ajoutez ses ' . metiers()[$m]['mots']['pros'] . ' et leurs horaires.');
                 aller('clinique');
             }
         }
@@ -325,11 +329,14 @@ function page_cliniques(): void
             . '<td>' . h(libelle_formule($k['formule'])) . ((float)$c['prix_negocie'] > 0 ? ' ' . badge('négocié', 'bleu') : '') . '</td><td>' . ($p > 0 ? h(montant($p)) : 'à fixer') . '</td>'
             . '<td>' . $k['sms'] . ($k['quota'] ? ' / ' . $k['quota'] . ($k['sms'] > $k['quota'] ? ' ' . badge('dépassé', 'rouge') : '') : '') . '</td>'
             . '<td>' . (int)valeur('SELECT COUNT(*) FROM rdv WHERE clinique_id = ? AND cree_le > ?', [$c['id'], $d]) . '</td>'
-            . '<td><form method="post">' . champ_csrf() . '<input type="hidden" name="action" value="choisir"><input type="hidden" name="id" value="' . (int)$c['id'] . '"><button class="btn contour">Ouvrir</button></form></td></tr>';
+            . '<td><div class="deux-boutons"><form method="post">' . champ_csrf() . '<input type="hidden" name="action" value="choisir"><input type="hidden" name="id" value="' . (int)$c['id'] . '"><button class="btn contour">Ouvrir</button></form>'
+            . '<form method="post">' . champ_csrf() . '<input type="hidden" name="action" value="choisir"><input type="hidden" name="vers" value="abonnement"><input type="hidden" name="id" value="' . (int)$c['id'] . '"><button class="lien">Offre</button></form></div></td></tr>';
     }
-    echo '</tbody></table></div><div class="grille-2"><section class="carte"><h2>Nouveau client</h2><form method="post" class="form">' . champ_csrf() . '<input type="hidden" name="action" value="creer">'
-        . '<label>Nom<input name="nom" required></label><label>Métier' . select_metier() . '</label><label>Pays<select name="pays"><option value="FR">France</option><option value="BE">Belgique</option></select></label><button class="btn">Créer</button></form></section>'
-        . '<section class="carte"><h2>Démonstrations</h2><p>Recrée la structure fictive d\'un métier, avec 60 jours d\'historique, et remet son horloge à zéro.</p><form method="post" class="form" data-confirmer="Recréer cette démonstration ? Ses données actuelles seront effacées.">' . champ_csrf() . '<input type="hidden" name="action" value="demo"><label>Métier' . select_metier() . '</label><button class="btn contour">Recréer la démonstration</button></form></section></div>';
+    echo '</tbody></table></div><section class="carte"><h2>Nouveau client</h2><form method="post" class="form">' . champ_csrf() . '<input type="hidden" name="action" value="creer">'
+        . '<div class="champ-trio"><label>Nom<input name="nom" required></label><label>Métier' . select_metier() . '</label><label>Pays<select name="pays"><option value="FR">France</option><option value="BE">Belgique</option></select></label></div>'
+        . cartes_formules('sante', 'essentiel') . champs_engagement(1, 0.0)
+        . '<button class="btn">Créer le client</button></form></section>'
+        . '<div class="grille-2"><section class="carte"><h2>Démonstrations</h2><p>Recrée la structure fictive d\'un métier, avec 60 jours d\'historique, et remet son horloge à zéro.</p><form method="post" class="form" data-confirmer="Recréer cette démonstration ? Ses données actuelles seront effacées.">' . champ_csrf() . '<input type="hidden" name="action" value="demo"><label>Métier' . select_metier() . '</label><button class="btn contour">Recréer la démonstration</button></form></section></div>';
     echo '<section class="carte"><h2>Journal</h2><ul class="liste-simple">';
     foreach (toutes('SELECT * FROM journal ORDER BY id DESC LIMIT 40') as $j) {
         echo '<li><span class="gris">' . h(date('d/m H:i', strtotime($j['t']))) . '</span> ' . h($j['utilisateur'] ?: '—') . ' · ' . h($j['action']) . ($j['detail'] !== '' ? ' · ' . h($j['detail']) : '') . '</li>';

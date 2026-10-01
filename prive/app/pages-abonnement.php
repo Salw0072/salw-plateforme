@@ -13,10 +13,8 @@ function page_abonnement(): void
     }
     $c = clinique_courante();
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && est_salw() && ($_POST['action'] ?? '') === 'formule') {
-        $f = (string)($_POST['formule'] ?? '');
-        $f = isset(FORMULES[$f]) || $f === 'sur_mesure' ? $f : '';
-        $prix = max(0, round((float)str_replace([',', ' '], ['.', ''], (string)($_POST['prix_negocie'] ?? '0')), 2));
-        executer('UPDATE cliniques SET formule = ?, engagement = ?, prix_negocie = ? WHERE id = ?', [$f, !empty($_POST['engagement']) ? 1 : 0, $prix, $c['id']]);
+        [$f, $engagement, $prix] = lire_offre($_POST);
+        executer('UPDATE cliniques SET formule = ?, engagement = ?, prix_negocie = ? WHERE id = ?', [$f, $engagement, $prix, $c['id']]);
         journaliser('abonnement_modifie', ($f ?: 'automatique') . ' · ' . ($prix > 0 ? $prix . ' €' : 'grille'), (int)$c['id']);
         flash('ok', 'Abonnement enregistré.');
         aller('abonnement');
@@ -86,20 +84,62 @@ function page_abonnement(): void
 
     // Modification (équipe SALW).
     if (est_salw()) {
-        $opts = "<option value=\"\">Automatique (selon la taille de l'équipe)</option>";
-        foreach (FORMULES as $cle => $d) {
-            $opts .= '<option value="' . $cle . '"' . ((string)$c['formule'] === $cle ? ' selected' : '') . '>' . h($d['libelle']) . ' · ' . h(euros((float)prix_formule($cle, $metier))) . '</option>';
-        }
-        $opts .= '<option value="sur_mesure"' . ((string)$c['formule'] === 'sur_mesure' ? ' selected' : '') . '>Sur mesure</option>';
-        echo '<section class="carte"><h2>Modifier l\'abonnement <span class="badge orange">équipe SALW</span></h2><form method="post" class="form">' . champ_csrf() . '<input type="hidden" name="action" value="formule">'
-            . '<div class="champ-duo"><label>Formule<select name="formule">' . $opts . '</select></label>'
-            . '<label>Prix négocié (€ HT par mois)<input name="prix_negocie" inputmode="decimal" value="' . ((float)$c['prix_negocie'] > 0 ? h(str_replace('.', ',', (string)(float)$c['prix_negocie'])) : '') . '" placeholder="Vide : prix de la grille"><small>Pour un pilote, une remise contre témoignage ou une formule sur mesure. Remplace la grille.</small></label></div>'
-            . '<label class="case"><input type="checkbox" name="engagement" value="1"' . ((int)$c['engagement'] ? ' checked' : '') . '> Engagement de 12 mois (sinon +' . (int)(MAJORATION_SANS_ENGAGEMENT * 100) . ' % sur la grille)</label>'
+        echo '<section class="carte" id="changer"><h2>Changer d\'offre <span class="badge orange">équipe SALW</span></h2><form method="post" class="form">' . champ_csrf() . '<input type="hidden" name="action" value="formule">'
+            . cartes_formules($metier, (string)$c['formule'], true) . champs_engagement((int)$c['engagement'], (float)$c['prix_negocie'])
             . '<button class="btn">Enregistrer</button></form></section>';
     } else {
         echo '<p class="petit">Pour changer de formule, contactez SALW CONSULTING.</p>';
     }
     pied();
+}
+
+/**
+ * Choix de l'offre en cartes : agendas, SMS inclus, prix du métier, mise en place.
+ * Les prix suivent le métier choisi dans le même formulaire (app.js lit data-prix).
+ * $auto : ajoute la carte « Automatique » (formule selon le nombre d'agendas).
+ */
+function cartes_formules(string $metier, string $choisie, bool $auto = false): string
+{
+    $prix = [];
+    foreach (array_keys(metiers()) as $m) {
+        foreach (FORMULES as $f => $d) {
+            $prix[$m][$f] = prix_formule($f, $m);
+        }
+    }
+    $h = '<fieldset class="offres-choix" data-prix="' . h((string)json_encode($prix)) . '"><legend>Offre</legend>';
+    $carte = function (string $val, string $titre, array $lignes, string $prixTxt, string $sous) use ($choisie): string {
+        return '<label class="offre-carte"><input type="radio" name="formule" value="' . h($val) . '"' . ($val === $choisie ? ' checked' : '') . ' required>'
+            . '<span class="offre-corps"><b class="offre-nom">' . h($titre) . '</b>'
+            . ($prixTxt !== '' ? '<span class="offre-prix" data-formule="' . h($val) . '">' . h($prixTxt) . '</span><small class="offre-sous">' . h($sous) . '</small>' : '<small class="offre-sous">' . h($sous) . '</small>')
+            . '<span class="offre-lignes">' . implode('', array_map(function ($l) { return '<span>' . h($l) . '</span>'; }, $lignes)) . '</span></span></label>';
+    };
+    $pros = 0;
+    foreach (FORMULES as $f => $d) {
+        $h .= $carte($f, $d['libelle'], [($pros + 1) . ' à ' . $d['pros_max'] . ' agendas', number_format($d['sms'], 0, ',', ' ') . ' SMS inclus par mois', 'Mise en place : ' . euros((float)$d['mise_en_place']), 'Toutes les automatisations'],
+            euros((float)prix_formule($f, $metier)), 'HT par mois, engagement 12 mois');
+        $pros = $d['pros_max'];
+    }
+    $h .= $carte('sur_mesure', 'Sur mesure', ['Plus de ' . FORMULES['structure']['pros_max'] . ' agendas ou plusieurs sites', 'Volume de SMS à définir', 'Mise en place sur devis'], '', 'Prix à fixer : saisissez le prix négocié');
+    if ($auto) {
+        $h .= $carte('', 'Automatique', ['Suit le nombre d\'agendas actifs', 'Change seule si l\'équipe grandit'], '', 'Formule déduite de la taille de l\'équipe');
+    }
+    return $h . '</fieldset>';
+}
+
+/** Lit l'offre envoyée par un formulaire : [formule, engagement, prix négocié]. */
+function lire_offre(array $post): array
+{
+    $f = (string)($post['formule'] ?? '');
+    $f = isset(FORMULES[$f]) || $f === 'sur_mesure' ? $f : '';
+    $prix = max(0, round((float)str_replace([',', ' '], ['.', ''], (string)($post['prix_negocie'] ?? '0')), 2));
+    return [$f, !empty($post['engagement']) ? 1 : 0, $prix];
+}
+
+/** Engagement et prix négocié, communs à la création et à la modification. */
+function champs_engagement(int $engagement, float $prixNegocie): string
+{
+    return '<div class="champ-duo"><label class="case"><input type="checkbox" name="engagement" value="1"' . ($engagement ? ' checked' : '') . '> Engagement de 12 mois (sans engagement : +' . (int)(MAJORATION_SANS_ENGAGEMENT * 100) . ' % sur la grille)</label>'
+        . '<label>Prix négocié (€ HT par mois, facultatif)<input name="prix_negocie" inputmode="decimal" value="' . ($prixNegocie > 0 ? h(str_replace('.', ',', (string)$prixNegocie)) : '') . '" placeholder="Vide : prix de la grille"><small>Pilote, remise contre témoignage, ou offre sur mesure. Remplace la grille.</small></label></div>';
 }
 
 /** Jauge de consommation : barre, valeur, état écrit (jamais la couleur seule). */

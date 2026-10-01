@@ -22,6 +22,20 @@
     };
     t.addEventListener("input", maj);
   });
+  // Cartes d'offres : les prix suivent le métier choisi dans le même formulaire.
+  document.querySelectorAll("fieldset[data-prix]").forEach(function (fs) {
+    var prix = JSON.parse(fs.getAttribute("data-prix")), metier = fs.form && fs.form.querySelector("select[name=metier]");
+    if (!metier) return;
+    var maj = function () {
+      var p = prix[metier.value] || {};
+      fs.querySelectorAll(".offre-prix[data-formule]").forEach(function (s) {
+        var v = p[s.getAttribute("data-formule")];
+        if (v) s.textContent = String(v).replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " €";
+      });
+    };
+    metier.addEventListener("change", maj);
+    maj();
+  });
   // Boutons « Copier » des codes à intégrer.
   document.querySelectorAll("[data-copier]").forEach(function (b) {
     b.addEventListener("click", function () {
