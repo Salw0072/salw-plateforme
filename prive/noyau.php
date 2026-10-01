@@ -49,7 +49,7 @@ function db(): PDO
 function schema(PDO $pdo): void
 {
     $version = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-    if ($version >= 8) {
+    if ($version >= 9) {
         return;
     }
     if ($version >= 1) {
@@ -71,7 +71,10 @@ function schema(PDO $pdo): void
         if ($version < 7) {
             migration_7($pdo);
         }
-        migration_8($pdo);
+        if ($version < 8) {
+            migration_8($pdo);
+        }
+        migration_9($pdo);
         return;
     }
     $pdo->exec(<<<'SQL'
@@ -152,6 +155,7 @@ SQL
     migration_6($pdo);
     migration_7($pdo);
     migration_8($pdo);
+    migration_9($pdo);
 }
 
 /** Version 2 : plateforme multi-métier (métier du client, questions de réservation, devis). */
@@ -255,6 +259,18 @@ CREATE TABLE IF NOT EXISTS paiements (
 CREATE TABLE IF NOT EXISTS paiements_evenements (id TEXT PRIMARY KEY, recu_le TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS parametres (cle TEXT PRIMARY KEY, valeur TEXT DEFAULT '');
 PRAGMA user_version = 8;
+SQL
+    );
+}
+
+/** Version 9 : essai gratuit de 7 jours (fin de l'essai, essai déjà utilisé, mise en place différée). */
+function migration_9(PDO $pdo): void
+{
+    $pdo->exec(<<<'SQL'
+ALTER TABLE cliniques ADD COLUMN paiement_essai_fin TEXT DEFAULT '';
+ALTER TABLE cliniques ADD COLUMN paiement_essai_utilise INTEGER DEFAULT 0;
+ALTER TABLE cliniques ADD COLUMN paiement_mise_en_place_ref TEXT DEFAULT '';
+PRAGMA user_version = 9;
 SQL
     );
 }

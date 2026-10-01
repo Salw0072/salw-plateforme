@@ -327,7 +327,7 @@ function page_cliniques(): void
         $p = prix_mensuel($c);
         echo '<tr><td><b>' . h($c['nom']) . '</b>' . ((int)$c['demo'] ? ' ' . badge('démonstration', 'orange') : '') . '<br><span class="gris">' . h(lien_reservation($c)) . '</span></td><td>' . h(metier($c)['libelle']) . ' <span class="gris">· ' . h($c['pays']) . '</span></td>'
             . '<td>' . h(libelle_formule($k['formule'])) . ((float)$c['prix_negocie'] > 0 ? ' ' . badge('négocié', 'bleu') : '') . '</td><td>' . ($p > 0 ? h(montant($p)) : 'à fixer') . '</td>'
-            . '<td>' . ((int)$c['demo'] ? '<span class="gris">démo</span>' : badge(STATUTS_PAIEMENT[$c['paiement_statut']] ?? $c['paiement_statut'], ['actif' => 'vert', 'impaye' => 'rouge', 'en_attente' => 'orange'][$c['paiement_statut']] ?? 'gris')
+            . '<td>' . ((int)$c['demo'] ? '<span class="gris">démo</span>' : badge(STATUTS_PAIEMENT[$c['paiement_statut']] ?? $c['paiement_statut'], ['actif' => 'vert', 'impaye' => 'rouge', 'en_attente' => 'orange', 'essai' => 'bleu'][$c['paiement_statut']] ?? 'gris')
                 . ($c['paiement_fournisseur'] !== '' && $c['paiement_statut'] !== '' ? ' <span class="gris">' . h(ucfirst($c['paiement_fournisseur'])) . '</span>' : '')) . '</td>'
             . '<td>' . $k['sms'] . ($k['quota'] ? ' / ' . $k['quota'] . ($k['sms'] > $k['quota'] ? ' ' . badge('dépassé', 'rouge') : '') : '') . '</td>'
             . '<td>' . (int)valeur('SELECT COUNT(*) FROM rdv WHERE clinique_id = ? AND cree_le > ?', [$c['id'], $d]) . '</td>'

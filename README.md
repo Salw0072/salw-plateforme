@@ -210,6 +210,7 @@ Le client paie depuis sa page **Abonnement** : **Stripe** (principal : carte ou 
 
 - **Stripe** : page de paiement Stripe (Checkout), factures et reçus Stripe, portail client « Moyen de paiement et factures ». Les **SMS au-delà du forfait** s'ajoutent automatiquement à la facture suivante (tâche cron du 1er du mois, une seule fois par mois).
 - **PayPal** : abonnement avec un plan propre à chaque client. Les SMS supplémentaires sont notés « à facturer » pour une facture manuelle.
+- **Essai gratuit de 7 jours** à partir de l'offre Équipe (Équipe, Structure, Sur mesure ; réglage `ESSAI_JOURS` et `FORMULES_AVEC_ESSAI` dans `prive/tarifs.php`). Le client enregistre sa carte, son IBAN ou son compte PayPal, rien n'est prélevé pendant l'essai, puis mise en place + premier mois au 8e jour. Stripe : essai de l'abonnement, mise en place ajoutée à la première vraie facture (retirée si le client résilie pendant l'essai). PayPal : cycle d'essai gratuit, puis un premier mois qui inclut la mise en place. Un seul essai par client. Statut « Essai gratuit » avec sa date de fin.
 - **Changement d'offre** : le nouveau prix est envoyé à Stripe ou PayPal, à partir de la prochaine échéance, sans prorata.
 - Paiement désactivé sur les démonstrations. Notifications vérifiées (signature Stripe, vérification auprès de PayPal) et traitées une seule fois.
 

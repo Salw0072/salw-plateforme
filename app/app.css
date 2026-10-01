@@ -234,3 +234,7 @@ tr.ligne-active td{background:var(--vert-c)}
 .recap-paiement small{font-size:12.5px;color:var(--gris)}
 .paiement h3{font-size:14.5px;margin:16px 0 6px;color:var(--nuit)}
 @media (max-width:600px){.recap-paiement{grid-template-columns:1fr}}
+.recap-paiement.trois{grid-template-columns:repeat(3,1fr)}
+.recap-paiement .essai{border-color:var(--bleu,#1D4F91);background:var(--bleu-c,#E6EEF9)}
+.recap-paiement .essai b{color:var(--bleu,#1D4F91)}
+@media (max-width:760px){.recap-paiement.trois{grid-template-columns:1fr}}

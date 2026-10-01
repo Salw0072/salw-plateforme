@@ -25,6 +25,10 @@ const COEF_METIERS = ['sante' => 1.0, 'coach' => 1.0, 'artisan' => 1.1, 'garage'
 const SMS_SUPPLEMENT = 0.15;          // € HT par SMS au-delà du forfait (coût Twilio : environ 0,07 € en France, 0,10 € en Belgique)
 const MAJORATION_SANS_ENGAGEMENT = 0.20;
 
+/** Essai gratuit avant le premier prélèvement, à partir de la deuxième offre (Essentiel n'en a pas). Une seule fois par client. */
+const ESSAI_JOURS = 7;
+const FORMULES_AVEC_ESSAI = ['equipe', 'structure', 'sur_mesure'];
+
 function coef_metier(string $metier): float
 {
     return COEF_METIERS[$metier] ?? 1.0;

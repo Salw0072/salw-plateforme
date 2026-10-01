@@ -160,11 +160,13 @@ function cartes_formules(string $metier, string $choisie, bool $auto = false): s
     };
     $pros = 0;
     foreach (FORMULES as $f => $d) {
-        $h .= $carte($f, $d['libelle'], [($pros + 1) . ' à ' . $d['pros_max'] . ' agendas', number_format($d['sms'], 0, ',', ' ') . ' SMS inclus par mois', 'Mise en place : ' . euros((float)$d['mise_en_place']), 'Toutes les automatisations'],
+        $essai = in_array($f, FORMULES_AVEC_ESSAI, true) ? [ESSAI_JOURS . ' jours d\'essai gratuit'] : [];
+        $h .= $carte($f, $d['libelle'], array_merge([($pros + 1) . ' à ' . $d['pros_max'] . ' agendas', number_format($d['sms'], 0, ',', ' ') . ' SMS inclus par mois', 'Mise en place : ' . euros((float)$d['mise_en_place']), 'Toutes les automatisations'], $essai),
             euros((float)prix_formule($f, $metier)), 'HT par mois, engagement 12 mois');
         $pros = $d['pros_max'];
     }
-    $h .= $carte('sur_mesure', 'Sur mesure', ['Plus de ' . FORMULES['structure']['pros_max'] . ' agendas ou plusieurs sites', 'Volume de SMS à définir', 'Mise en place sur devis'], '', 'Prix à fixer : saisissez le prix négocié');
+    $h .= $carte('sur_mesure', 'Sur mesure', array_merge(['Plus de ' . FORMULES['structure']['pros_max'] . ' agendas ou plusieurs sites', 'Volume de SMS à définir', 'Mise en place sur devis'],
+        in_array('sur_mesure', FORMULES_AVEC_ESSAI, true) ? [ESSAI_JOURS . ' jours d\'essai gratuit'] : []), '', 'Prix à fixer : saisissez le prix négocié');
     if ($auto) {
         $h .= $carte('', 'Automatique', ['Suit le nombre d\'agendas actifs', 'Change seule si l\'équipe grandit'], '', 'Formule déduite de la taille de l\'équipe');
     }
@@ -203,10 +205,17 @@ function section_paiement(array $c): string
     $r = recap_paiement($c);
     $statut = (string)$c['paiement_statut'];
     $f = (string)$c['paiement_fournisseur'];
-    $ton = ['actif' => 'vert', 'impaye' => 'rouge', 'en_attente' => 'orange'][$statut] ?? 'gris';
+    $ton = ['actif' => 'vert', 'impaye' => 'rouge', 'en_attente' => 'orange', 'essai' => 'bleu'][$statut] ?? 'gris';
     $h .= '<p>Statut : ' . badge(STATUTS_PAIEMENT[$statut] ?? $statut, $ton) . ($f !== '' && $statut !== '' ? ' <span class="gris">· ' . ($f === 'stripe' ? 'Stripe' : 'PayPal') . '</span>' : '') . '</p>';
 
-    if (in_array($statut, ['actif', 'impaye'], true)) {
+    if (in_array($statut, ['actif', 'impaye', 'essai'], true)) {
+        if ($statut === 'essai') {
+            $fin = strtotime((string)$c['paiement_essai_fin']) ?: fin_essai_previsionnelle();
+            $premiere = $r['mensuel'] + (float)(FORMULES[$r['formule']]['mise_en_place'] ?? 0) * ((int)$c['mise_en_place_offerte'] ? 0 : 1);
+            $h .= '<div class="msg info">' . ($fin > time()
+                    ? 'Essai gratuit jusqu\'au <b>' . h(date('d/m/Y', $fin)) . '</b> : aucun prélèvement avant cette date. Ensuite, premier prélèvement de ' . h(montant($premiere)) . ' HT, puis ' . h(montant($r['mensuel'])) . ' HT par mois. Résiliation possible d\'ici là sans rien payer.'
+                    : 'Essai terminé le ' . h(date('d/m/Y', $fin)) . ' : premier prélèvement en cours.') . '</div>';
+        }
         if ($statut === 'impaye') {
             $h .= '<div class="msg erreur">Le dernier prélèvement a échoué. ' . ($f === 'stripe' ? 'Mettez à jour le moyen de paiement ci-dessous : Stripe retentera automatiquement.' : 'Vérifiez le compte PayPal : PayPal retentera automatiquement.') . '</div>';
         }
@@ -233,11 +242,16 @@ function section_paiement(array $c): string
     } elseif ($statut === 'annule') {
         $h .= '<div class="msg info">Abonnement résilié. Il peut être réactivé à tout moment ci-dessous.</div>';
     }
-    $h .= '<div class="recap-paiement"><div><span>Première échéance</span><b>' . h(montant($r['mensuel'] + $r['mise_en_place'])) . ' HT</b><small>'
-        . h($r['mise_en_place'] > 0 ? 'Mise en place ' . montant($r['mise_en_place']) . ' + premier mois ' . montant($r['mensuel']) : 'Premier mois (mise en place ' . ($r['raison_sans_mise_en_place'] ?: 'offerte') . ')') . '</small></div>'
+    $premiere = '<b>' . h(montant($r['mensuel'] + $r['mise_en_place'])) . ' HT</b><small>'
+        . h($r['mise_en_place'] > 0 ? 'Mise en place ' . montant($r['mise_en_place']) . ' + premier mois ' . montant($r['mensuel']) : 'Premier mois (mise en place ' . ($r['raison_sans_mise_en_place'] ?: 'offerte') . ')') . '</small>';
+    $h .= '<div class="recap-paiement' . ($r['essai'] ? ' trois' : '') . '">'
+        . ($r['essai']
+            ? '<div class="essai"><span>' . ESSAI_JOURS . ' jours d\'essai gratuit</span><b>0 € aujourd\'hui</b><small>Aucun prélèvement avant le ' . h(date('d/m/Y', fin_essai_previsionnelle())) . '</small></div><div><span>Au ' . (ESSAI_JOURS + 1) . 'e jour</span>' . $premiere . '</div>'
+            : '<div><span>Première échéance</span>' . $premiere . '</div>')
         . '<div><span>Ensuite</span><b>' . h(montant($r['mensuel'])) . ' HT par mois</b><small>Prélevé automatiquement, facture envoyée par e-mail</small></div></div>';
-    $h .= '<div class="deux-boutons">' . (stripe_actif() ? form_paiement('payer_stripe', 'Payer par carte ou prélèvement SEPA', 'btn') : '')
-        . (paypal_actif() ? form_paiement('payer_paypal', 'Payer avec PayPal', 'btn contour') : '') . '</div>'
+    $h .= '<div class="deux-boutons">' . (stripe_actif() ? form_paiement('payer_stripe', $r['essai'] ? 'Démarrer l\'essai gratuit (carte ou SEPA)' : 'Payer par carte ou prélèvement SEPA', 'btn') : '')
+        . (paypal_actif() ? form_paiement('payer_paypal', $r['essai'] ? 'Démarrer l\'essai avec PayPal' : 'Payer avec PayPal', 'btn contour') : '') . '</div>'
+        . ($r['essai'] ? '<p class="petit">Le moyen de paiement est enregistré dès maintenant, mais rien n\'est prélevé pendant ' . ESSAI_JOURS . ' jours. Résiliation possible à tout moment pendant l\'essai, sans frais.</p>' : '')
         . '<p class="petit">Paiement sécurisé chez ' . (stripe_actif() && paypal_actif() ? 'Stripe ou PayPal' : (stripe_actif() ? 'Stripe' : 'PayPal')) . ' : SALW CONSULTING ne voit jamais les coordonnées bancaires.'
         . (stripe_actif() ? ' Avec Stripe, les SMS au-delà du forfait s\'ajoutent automatiquement à la facture suivante.' : '')
         . (paypal_actif() ? ' Avec PayPal, ils sont facturés à part.' : '') . '</p>';
