@@ -60,7 +60,7 @@ Formules **au volume** (toutes les automatisations partout) : Essentiel (1 à 2 
 - Les SMS sont comptés en segments, comme l'opérateur les facture. Au-delà du forfait, **les envois ne sont jamais coupés**, le dépassement est affiché à 0,15 € l'unité.
 - **Tableau de bord** : alerte si le forfait est dépassé, va l'être à ce rythme, ou si l'équipe dépasse la formule.
 - **Clients (SALW)** : formule, prix et SMS du mois de chaque client, et **revenu mensuel récurrent** (démonstrations exclues), avec sa projection sur 12 mois.
-- Pas encore de facturation automatique : les montants servent à établir les factures à la main (Stripe plus tard).
+- **Paiement en ligne** par Stripe ou PayPal depuis la page Abonnement : voir « Paiement en ligne des abonnements » plus bas.
 
 ## Écrans
 
@@ -108,7 +108,7 @@ Tout est fictif : les numéros sont pris dans la tranche 06 39 98 xx xx, réserv
 
 1. Hébergement PHP 7.4 ou plus avec SQLite (PHP 8.1 ou plus pour l'assistant IA). Téléverser tout le dossier, `prive/vendor/` compris.
 2. Ouvrir `/app/` et créer le compte SALW. Il n'y a pas de clé d'installation : **créez le compte juste après la mise en ligne**.
-3. Tâche cron toutes les 5 minutes : `php /chemin/cron.php`. Elle envoie aussi les rapports mensuels.
+3. Tâche cron toutes les 5 minutes : `php /chemin/cron.php`. Le 1er du mois, elle envoie aussi les rapports mensuels et facture les SMS au-delà du forfait.
 4. `prive/config.php` (renseigner **`url_site`**, sinon la tâche cron ne peut pas construire les liens des SMS et du rapport, et le rapport n'est pas envoyé) :
    - `mode_envoi` : laisser `simulation` tant que les SMS réels ne sont pas branchés (les démonstrations restent toujours en simulation, même en mode `reel`) ;
    - `twilio` : compte Twilio pour les SMS ;
@@ -203,3 +203,21 @@ Dépôt Git propre à cette application (branche `main`), à pousser dans un dé
 Lien « Mot de passe oublié ? » sous le formulaire de connexion : on saisit l'adresse du compte et on reçoit par e-mail un lien **valable 1 heure et utilisable une seule fois** (seule son empreinte est conservée), pour choisir soi-même le nouveau mot de passe. La réponse affichée est la même que l'adresse existe ou non. Limite : cinq demandes par heure et par adresse IP. Une réinitialisation remet aussi à zéro le blocage après échecs ; la double authentification, si elle est activée, reste demandée à la connexion.
 
 L'e-mail part depuis `email_expediteur`, même en mode simulation (il sert à l'équipe, pas aux clients). Si l'envoi échoue, par exemple sur un poste local sans serveur de messagerie, il est déposé dans `prive/donnees/boite-test/`, inaccessible depuis le web.
+
+## Paiement en ligne des abonnements (Stripe, PayPal)
+
+Le client paie depuis sa page **Abonnement** : **Stripe** (principal : carte ou prélèvement SEPA) ou **PayPal** (option). Première échéance = mise en place + premier mois (la mise en place n'est facturée qu'une fois : ni si elle est offerte, ni lors d'un réabonnement), puis prélèvement automatique chaque mois. Statut visible dans *Clients (SALW)* : non payé, en attente, actif, impayé, résilié.
+
+- **Stripe** : page de paiement Stripe (Checkout), factures et reçus Stripe, portail client « Moyen de paiement et factures ». Les **SMS au-delà du forfait** s'ajoutent automatiquement à la facture suivante (tâche cron du 1er du mois, une seule fois par mois).
+- **PayPal** : abonnement avec un plan propre à chaque client. Les SMS supplémentaires sont notés « à facturer » pour une facture manuelle.
+- **Changement d'offre** : le nouveau prix est envoyé à Stripe ou PayPal, à partir de la prochaine échéance, sans prorata.
+- Paiement désactivé sur les démonstrations. Notifications vérifiées (signature Stripe, vérification auprès de PayPal) et traitées une seule fois.
+
+**Mise en service** (compte Stripe et compte PayPal Business au nom de SALW, en Norvège) :
+1. Stripe, en **mode test** d'abord : Développeurs › Clés API → `stripe_cle_secrete` (sk_test_…). Paramètres › Moyens de paiement : activer la carte et le **prélèvement SEPA**. Paramètres › Facturation › **Portail client** : l'activer. Développeurs › Webhooks : adresse `https://<plateforme>/webhooks/stripe.php`, événements `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted` → secret `whsec_…` dans `stripe_secret_webhook`.
+2. PayPal : developer.paypal.com › Apps & Credentials, application en **sandbox** → `paypal_client_id`, `paypal_secret`, `paypal_mode` = `sandbox`. Webhook `https://<plateforme>/webhooks/paypal.php`, événements `BILLING.SUBSCRIPTION.*` et `PAYMENT.SALE.COMPLETED` → `paypal_webhook_id`.
+3. Faire un paiement test complet, puis passer aux clés réelles (sk_live_…, `paypal_mode` = `live`, webhooks recréés en mode réel).
+
+**Points à valider avec ton comptable** : les montants sont payés hors taxes, tels quels. Facturer depuis la Norvège des entreprises de l'UE relève en principe de l'autoliquidation de la TVA, mais un client norvégien paierait la MVA (25 %). Stripe Tax peut ajouter la taxe automatiquement si besoin. Les virements arrivent sur ton compte Stripe ou PayPal en euros, convertis en couronnes si ton compte bancaire est en NOK.
+
+**Testé** contre un faux Stripe et un faux PayPal locaux (comportement et réponses de leurs API) : paiement, retour, notifications signées, rejouées et falsifiées, impayé, résiliation, portail, changement de prix, SMS supplémentaires, démos bloquées, PHP 8.3 et 7.4. **Non testé contre les vrais services** : à faire en mode test dès que les comptes existent.

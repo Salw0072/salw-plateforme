@@ -290,9 +290,9 @@ function page_cliniques(): void
                 flash('erreur', 'Nom manquant ou déjà utilisé.');
             } else {
                 $m = array_key_exists($_POST['metier'] ?? '', metiers()) ? (string)$_POST['metier'] : 'sante';
-                [$formule, $engagement, $prixNegocie] = lire_offre($_POST);
-                $id = inserer('INSERT INTO cliniques (slug, nom, pays, fuseau, metier, formule, engagement, prix_negocie, cree_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [$slug, $nom, $_POST['pays'] === 'BE' ? 'BE' : 'FR', $_POST['pays'] === 'BE' ? 'Europe/Brussels' : 'Europe/Paris', $m, $formule, $engagement, $prixNegocie, iso(time())]);
+                [$formule, $engagement, $prixNegocie, $offerte] = lire_offre($_POST);
+                $id = inserer('INSERT INTO cliniques (slug, nom, pays, fuseau, metier, formule, engagement, prix_negocie, mise_en_place_offerte, cree_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$slug, $nom, $_POST['pays'] === 'BE' ? 'BE' : 'FR', $_POST['pays'] === 'BE' ? 'Europe/Brussels' : 'Europe/Paris', $m, $formule, $engagement, $prixNegocie, $offerte, iso(time())]);
                 // Types de rendez-vous et FAQ du modèle du métier, à adapter.
                 foreach (metiers()[$m]['demo']['types'] as [$lib, $duree, $enLigne]) {
                     inserer('INSERT INTO types_rdv (clinique_id, libelle, duree, en_ligne) VALUES (?, ?, ?, ?)', [$id, $lib, $duree, $enLigne]);
@@ -320,13 +320,15 @@ function page_cliniques(): void
         }
     }
     echo '<div class="tuiles">' . tuile('Revenu mensuel récurrent', montant($mrr), $nbReels . ' client(s) réel(s), démonstrations exclues') . tuile('Sur 12 mois', euros($mrr * 12), 'à abonnements constants, hors mises en place et SMS supplémentaires') . '</div>';
-    echo '<div class="table"><table><thead><tr><th>Client</th><th>Métier</th><th>Formule</th><th>Par mois</th><th>SMS du mois</th><th>Rendez-vous (30 j)</th><th></th></tr></thead><tbody>';
+    echo '<div class="table"><table><thead><tr><th>Client</th><th>Métier</th><th>Formule</th><th>Par mois</th><th>Paiement</th><th>SMS du mois</th><th>Rendez-vous (30 j)</th><th></th></tr></thead><tbody>';
     foreach ($clients as $c) {
         $d = iso(maintenant($c) - 30 * 86400);
         $k = consommation($c);
         $p = prix_mensuel($c);
         echo '<tr><td><b>' . h($c['nom']) . '</b>' . ((int)$c['demo'] ? ' ' . badge('démonstration', 'orange') : '') . '<br><span class="gris">' . h(lien_reservation($c)) . '</span></td><td>' . h(metier($c)['libelle']) . ' <span class="gris">· ' . h($c['pays']) . '</span></td>'
             . '<td>' . h(libelle_formule($k['formule'])) . ((float)$c['prix_negocie'] > 0 ? ' ' . badge('négocié', 'bleu') : '') . '</td><td>' . ($p > 0 ? h(montant($p)) : 'à fixer') . '</td>'
+            . '<td>' . ((int)$c['demo'] ? '<span class="gris">démo</span>' : badge(STATUTS_PAIEMENT[$c['paiement_statut']] ?? $c['paiement_statut'], ['actif' => 'vert', 'impaye' => 'rouge', 'en_attente' => 'orange'][$c['paiement_statut']] ?? 'gris')
+                . ($c['paiement_fournisseur'] !== '' && $c['paiement_statut'] !== '' ? ' <span class="gris">' . h(ucfirst($c['paiement_fournisseur'])) . '</span>' : '')) . '</td>'
             . '<td>' . $k['sms'] . ($k['quota'] ? ' / ' . $k['quota'] . ($k['sms'] > $k['quota'] ? ' ' . badge('dépassé', 'rouge') : '') : '') . '</td>'
             . '<td>' . (int)valeur('SELECT COUNT(*) FROM rdv WHERE clinique_id = ? AND cree_le > ?', [$c['id'], $d]) . '</td>'
             . '<td><div class="deux-boutons"><form method="post">' . champ_csrf() . '<input type="hidden" name="action" value="choisir"><input type="hidden" name="id" value="' . (int)$c['id'] . '"><button class="btn contour">Ouvrir</button></form>'

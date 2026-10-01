@@ -226,3 +226,11 @@ tr.ligne-active td{background:var(--vert-c)}
 .offre-lignes{display:flex;flex-direction:column;gap:3px;margin-top:8px;font-size:13.5px;color:var(--texte)}
 .offre-lignes span::before{content:"· ";color:var(--prune)}
 @media (max-width:700px){.champ-trio{grid-template-columns:1fr}}
+/* Paiement (page Abonnement) */
+.recap-paiement{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:6px 0 14px}
+.recap-paiement div{border:1px solid var(--trait);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.recap-paiement span{font-size:13px;color:var(--gris)}
+.recap-paiement b{font-size:20px;color:var(--nuit)}
+.recap-paiement small{font-size:12.5px;color:var(--gris)}
+.paiement h3{font-size:14.5px;margin:16px 0 6px;color:var(--nuit)}
+@media (max-width:600px){.recap-paiement{grid-template-columns:1fr}}

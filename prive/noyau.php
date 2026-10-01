@@ -49,7 +49,7 @@ function db(): PDO
 function schema(PDO $pdo): void
 {
     $version = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-    if ($version >= 7) {
+    if ($version >= 8) {
         return;
     }
     if ($version >= 1) {
@@ -68,7 +68,10 @@ function schema(PDO $pdo): void
         if ($version < 6) {
             migration_6($pdo);
         }
-        migration_7($pdo);
+        if ($version < 7) {
+            migration_7($pdo);
+        }
+        migration_8($pdo);
         return;
     }
     $pdo->exec(<<<'SQL'
@@ -148,6 +151,7 @@ SQL
     migration_5($pdo);
     migration_6($pdo);
     migration_7($pdo);
+    migration_8($pdo);
 }
 
 /** Version 2 : plateforme multi-métier (métier du client, questions de réservation, devis). */
@@ -228,6 +232,29 @@ function migration_7(PDO $pdo): void
 ALTER TABLE utilisateurs ADD COLUMN reinit_empreinte TEXT DEFAULT '';
 ALTER TABLE utilisateurs ADD COLUMN reinit_expire INTEGER DEFAULT 0;
 PRAGMA user_version = 7;
+SQL
+    );
+}
+
+/** Version 8 : paiement des abonnements (Stripe, PayPal), historique des paiements. */
+function migration_8(PDO $pdo): void
+{
+    $pdo->exec(<<<'SQL'
+ALTER TABLE cliniques ADD COLUMN mise_en_place_offerte INTEGER DEFAULT 0;
+ALTER TABLE cliniques ADD COLUMN paiement_fournisseur TEXT DEFAULT '';
+ALTER TABLE cliniques ADD COLUMN paiement_statut TEXT DEFAULT '';
+ALTER TABLE cliniques ADD COLUMN paiement_client_ref TEXT DEFAULT '';
+ALTER TABLE cliniques ADD COLUMN paiement_abonnement_ref TEXT DEFAULT '';
+ALTER TABLE cliniques ADD COLUMN paiement_plan_ref TEXT DEFAULT '';
+ALTER TABLE cliniques ADD COLUMN paiement_maj TEXT DEFAULT '';
+CREATE TABLE IF NOT EXISTS paiements (
+  id INTEGER PRIMARY KEY, clinique_id INTEGER NOT NULL REFERENCES cliniques(id) ON DELETE CASCADE,
+  fournisseur TEXT NOT NULL, type TEXT NOT NULL, libelle TEXT DEFAULT '', montant REAL DEFAULT 0,
+  statut TEXT NOT NULL, ref TEXT NOT NULL, cree_le TEXT NOT NULL, UNIQUE (fournisseur, ref)
+);
+CREATE TABLE IF NOT EXISTS paiements_evenements (id TEXT PRIMARY KEY, recu_le TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS parametres (cle TEXT PRIMARY KEY, valeur TEXT DEFAULT '');
+PRAGMA user_version = 8;
 SQL
     );
 }

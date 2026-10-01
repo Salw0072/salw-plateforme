@@ -12,11 +12,55 @@ function page_abonnement(): void
         interdit();
     }
     $c = clinique_courante();
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && est_salw() && ($_POST['action'] ?? '') === 'formule') {
-        [$f, $engagement, $prix] = lire_offre($_POST);
-        executer('UPDATE cliniques SET formule = ?, engagement = ?, prix_negocie = ? WHERE id = ?', [$f, $engagement, $prix, $c['id']]);
+    $action = $_SERVER['REQUEST_METHOD'] === 'POST' ? (string)($_POST['action'] ?? '') : '';
+    if ($action === 'formule' && est_salw()) {
+        [$f, $engagement, $prix, $offerte] = lire_offre($_POST);
+        executer('UPDATE cliniques SET formule = ?, engagement = ?, prix_negocie = ?, mise_en_place_offerte = ? WHERE id = ?', [$f, $engagement, $prix, $offerte, $c['id']]);
         journaliser('abonnement_modifie', ($f ?: 'automatique') . ' · ' . ($prix > 0 ? $prix . ' €' : 'grille'), (int)$c['id']);
-        flash('ok', 'Abonnement enregistré.');
+        $message = 'Abonnement enregistré.';
+        try {
+            $suite = synchroniser_prix(clinique((int)$c['id']));
+            $message .= $suite !== '' ? ' ' . $suite : '';
+            flash('ok', $message);
+        } catch (RuntimeException $e) {
+            flash('erreur', $message . ' Mais le prix n\'a pas pu être mis à jour chez ' . ucfirst((string)$c['paiement_fournisseur']) . ' : ' . $e->getMessage());
+        }
+        aller('abonnement');
+    }
+    // Paiement en ligne : le client part chez Stripe ou PayPal, puis revient sur cette page.
+    if (in_array($action, ['payer_stripe', 'payer_paypal', 'portail'], true)) {
+        try {
+            if ((int)$c['demo']) {
+                throw new RuntimeException('structure de démonstration.');
+            }
+            $email = filter_var((string)$c['email'], FILTER_VALIDATE_EMAIL) ? (string)$c['email'] : (string)moi()['identifiant'];
+            $vers = $action === 'payer_stripe' && stripe_actif() ? stripe_ouvrir_paiement($c, $email)
+                : ($action === 'payer_paypal' && paypal_actif() ? paypal_ouvrir_abonnement($c, $email)
+                : ($action === 'portail' && stripe_actif() && (string)$c['paiement_client_ref'] !== '' ? stripe_portail($c) : ''));
+            if ($vers === '') {
+                throw new RuntimeException('Ce moyen de paiement n\'est pas configuré.');
+            }
+            journaliser('paiement_' . $action, '', (int)$c['id']);
+            header('Location: ' . $vers, true, 303);
+            exit;
+        } catch (RuntimeException $e) {
+            flash('erreur', 'Paiement impossible pour le moment : ' . $e->getMessage());
+            aller('abonnement');
+        }
+    }
+    $retour = (string)($_GET['paiement'] ?? '');
+    if ($retour !== '') {
+        try {
+            if ($retour === 'stripe' && stripe_actif()) {
+                flash('ok', stripe_confirmer_retour($c, (string)($_GET['session'] ?? '')));
+            } elseif ($retour === 'paypal' && paypal_actif()) {
+                flash('ok', paypal_confirmer_retour($c, (string)($_GET['subscription_id'] ?? '')));
+            } elseif ($retour === 'annule') {
+                flash('info', 'Paiement interrompu : rien n\'a été prélevé. Vous pouvez reprendre quand vous voulez.');
+            }
+        } catch (RuntimeException $e) {
+            flash('erreur', 'Le paiement n\'a pas pu être vérifié : ' . $e->getMessage() . ' Le statut sera mis à jour dès la confirmation du service de paiement.');
+        }
         aller('abonnement');
     }
     $c = clinique((int)$c['id']);
@@ -44,6 +88,7 @@ function page_abonnement(): void
     }
     echo '<section class="carte heros-kpi"><div><span class="tuile-lib">Formule</span><span class="chiffre-heros">' . h(libelle_formule($f)) . '</span><span class="tuile-det">' . h($details) . '</span></div>'
         . '<div><span class="tuile-lib">Abonnement mensuel</span><span class="chiffre-heros">' . ($prix > 0 ? h(montant($prix)) : 'À fixer') . '</span><span class="tuile-det">' . h(ucfirst(implode(' · ', $mentions))) . '</span></div></section>';
+    echo section_paiement($c);
 
     // Consommation du mois.
     echo '<div class="grille-2"><section class="carte"><h2>Consommation de ' . h(mois_libelle($k['mois'])) . ($k['en_cours'] ? ' (en cours)' : '') . '</h2>';
@@ -85,7 +130,7 @@ function page_abonnement(): void
     // Modification (équipe SALW).
     if (est_salw()) {
         echo '<section class="carte" id="changer"><h2>Changer d\'offre <span class="badge orange">équipe SALW</span></h2><form method="post" class="form">' . champ_csrf() . '<input type="hidden" name="action" value="formule">'
-            . cartes_formules($metier, (string)$c['formule'], true) . champs_engagement((int)$c['engagement'], (float)$c['prix_negocie'])
+            . cartes_formules($metier, (string)$c['formule'], true) . champs_engagement((int)$c['engagement'], (float)$c['prix_negocie'], (int)$c['mise_en_place_offerte'])
             . '<button class="btn">Enregistrer</button></form></section>';
     } else {
         echo '<p class="petit">Pour changer de formule, contactez SALW CONSULTING.</p>';
@@ -126,20 +171,82 @@ function cartes_formules(string $metier, string $choisie, bool $auto = false): s
     return $h . '</fieldset>';
 }
 
-/** Lit l'offre envoyée par un formulaire : [formule, engagement, prix négocié]. */
+/** Lit l'offre envoyée par un formulaire : [formule, engagement, prix négocié, mise en place offerte]. */
 function lire_offre(array $post): array
 {
     $f = (string)($post['formule'] ?? '');
     $f = isset(FORMULES[$f]) || $f === 'sur_mesure' ? $f : '';
     $prix = max(0, round((float)str_replace([',', ' '], ['.', ''], (string)($post['prix_negocie'] ?? '0')), 2));
-    return [$f, !empty($post['engagement']) ? 1 : 0, $prix];
+    return [$f, !empty($post['engagement']) ? 1 : 0, $prix, !empty($post['mise_en_place_offerte']) ? 1 : 0];
 }
 
-/** Engagement et prix négocié, communs à la création et à la modification. */
-function champs_engagement(int $engagement, float $prixNegocie): string
+/** Engagement, mise en place offerte et prix négocié, communs à la création et à la modification. */
+function champs_engagement(int $engagement, float $prixNegocie, int $miseEnPlaceOfferte = 0): string
 {
-    return '<div class="champ-duo"><label class="case"><input type="checkbox" name="engagement" value="1"' . ($engagement ? ' checked' : '') . '> Engagement de 12 mois (sans engagement : +' . (int)(MAJORATION_SANS_ENGAGEMENT * 100) . ' % sur la grille)</label>'
+    return '<div class="champ-duo"><div class="form"><label class="case"><input type="checkbox" name="engagement" value="1"' . ($engagement ? ' checked' : '') . '> Engagement de 12 mois (sans engagement : +' . (int)(MAJORATION_SANS_ENGAGEMENT * 100) . ' % sur la grille)</label>'
+        . '<label class="case"><input type="checkbox" name="mise_en_place_offerte" value="1"' . ($miseEnPlaceOfferte ? ' checked' : '') . '> Mise en place offerte (client pilote, geste commercial)</label></div>'
         . '<label>Prix négocié (€ HT par mois, facultatif)<input name="prix_negocie" inputmode="decimal" value="' . ($prixNegocie > 0 ? h(str_replace('.', ',', (string)$prixNegocie)) : '') . '" placeholder="Vide : prix de la grille"><small>Pilote, remise contre témoignage, ou offre sur mesure. Remplace la grille.</small></label></div>';
+}
+
+/** Bloc « Paiement » : ce que le client paie, comment, et où il en est. */
+function section_paiement(array $c): string
+{
+    $h = '<section class="carte paiement" id="paiement"><h2>Paiement</h2>';
+    if ((int)$c['demo']) {
+        return $h . '<p class="petit">Structure de démonstration : le paiement en ligne est désactivé.</p></section>';
+    }
+    if (!stripe_actif() && !paypal_actif()) {
+        return $h . (est_salw()
+            ? '<p>Paiement en ligne non configuré : renseignez les clés Stripe (et, en option, PayPal) dans <code>prive/config.php</code>. En attendant, facturez à la main.</p>'
+            : '<p>SALW CONSULTING vous adresse ses factures. Le paiement en ligne sera bientôt disponible ici.</p>') . '</section>';
+    }
+    $r = recap_paiement($c);
+    $statut = (string)$c['paiement_statut'];
+    $f = (string)$c['paiement_fournisseur'];
+    $ton = ['actif' => 'vert', 'impaye' => 'rouge', 'en_attente' => 'orange'][$statut] ?? 'gris';
+    $h .= '<p>Statut : ' . badge(STATUTS_PAIEMENT[$statut] ?? $statut, $ton) . ($f !== '' && $statut !== '' ? ' <span class="gris">· ' . ($f === 'stripe' ? 'Stripe' : 'PayPal') . '</span>' : '') . '</p>';
+
+    if (in_array($statut, ['actif', 'impaye'], true)) {
+        if ($statut === 'impaye') {
+            $h .= '<div class="msg erreur">Le dernier prélèvement a échoué. ' . ($f === 'stripe' ? 'Mettez à jour le moyen de paiement ci-dessous : Stripe retentera automatiquement.' : 'Vérifiez le compte PayPal : PayPal retentera automatiquement.') . '</div>';
+        }
+        $h .= $f === 'stripe' && stripe_actif()
+            ? form_paiement('portail', 'Moyen de paiement et factures', 'btn contour') . '<p class="petit">Portail sécurisé Stripe : carte ou compte bancaire, adresse de facturation, téléchargement des factures.</p>'
+            : '<p class="petit">Abonnement géré depuis le compte PayPal du client (Paramètres › Paiements › Paiements automatiques). Les SMS au-delà du forfait sont facturés à part.</p>';
+        $liste = toutes('SELECT * FROM paiements WHERE clinique_id = ? ORDER BY id DESC LIMIT 6', [$c['id']]);
+        if ($liste) {
+            $h .= '<h3 class="sep">Derniers mouvements</h3><ul class="liste-simple">';
+            $libs = ['paye' => ['payé', 'vert'], 'echec' => ['échec', 'rouge'], 'sur_prochaine_facture' => ['sur la prochaine facture', 'bleu'], 'a_facturer' => ['à facturer', 'orange']];
+            foreach ($liste as $p) {
+                [$lib, $t] = $libs[$p['statut']] ?? [$p['statut'], 'gris'];
+                $h .= '<li><span class="gris">' . h(date('d/m/Y', strtotime($p['cree_le']))) . '</span> ' . h($p['libelle']) . ' · <b>' . h(montant((float)$p['montant'])) . '</b> ' . badge($lib, $t) . '</li>';
+            }
+            $h .= '</ul>';
+        }
+        return $h . '</section>';
+    }
+    if ($r['mensuel'] <= 0) {
+        return $h . '<p>Le prix de l\'offre sur mesure reste à fixer : le paiement en ligne sera possible ensuite.</p></section>';
+    }
+    if ($statut === 'en_attente') {
+        $h .= '<div class="msg info">Paiement commencé mais pas encore confirmé. Un prélèvement SEPA peut prendre quelques jours ; sinon, reprenez ci-dessous.</div>';
+    } elseif ($statut === 'annule') {
+        $h .= '<div class="msg info">Abonnement résilié. Il peut être réactivé à tout moment ci-dessous.</div>';
+    }
+    $h .= '<div class="recap-paiement"><div><span>Première échéance</span><b>' . h(montant($r['mensuel'] + $r['mise_en_place'])) . ' HT</b><small>'
+        . h($r['mise_en_place'] > 0 ? 'Mise en place ' . montant($r['mise_en_place']) . ' + premier mois ' . montant($r['mensuel']) : 'Premier mois (mise en place ' . ($r['raison_sans_mise_en_place'] ?: 'offerte') . ')') . '</small></div>'
+        . '<div><span>Ensuite</span><b>' . h(montant($r['mensuel'])) . ' HT par mois</b><small>Prélevé automatiquement, facture envoyée par e-mail</small></div></div>';
+    $h .= '<div class="deux-boutons">' . (stripe_actif() ? form_paiement('payer_stripe', 'Payer par carte ou prélèvement SEPA', 'btn') : '')
+        . (paypal_actif() ? form_paiement('payer_paypal', 'Payer avec PayPal', 'btn contour') : '') . '</div>'
+        . '<p class="petit">Paiement sécurisé chez ' . (stripe_actif() && paypal_actif() ? 'Stripe ou PayPal' : (stripe_actif() ? 'Stripe' : 'PayPal')) . ' : SALW CONSULTING ne voit jamais les coordonnées bancaires.'
+        . (stripe_actif() ? ' Avec Stripe, les SMS au-delà du forfait s\'ajoutent automatiquement à la facture suivante.' : '')
+        . (paypal_actif() ? ' Avec PayPal, ils sont facturés à part.' : '') . '</p>';
+    return $h . '</section>';
+}
+
+function form_paiement(string $action, string $libelle, string $classe): string
+{
+    return '<form method="post">' . champ_csrf() . '<input type="hidden" name="action" value="' . h($action) . '"><button class="' . h($classe) . '">' . h($libelle) . '</button></form>';
 }
 
 /** Jauge de consommation : barre, valeur, état écrit (jamais la couleur seule). */

@@ -35,4 +35,14 @@ return [
 
     // Données des patients : suppression des patients sans rendez-vous depuis (mois).
     'conservation_patients_mois' => 36,
+
+    // Paiement des abonnements par les clients (page Abonnement). Vide : boutons de paiement masqués.
+    // Stripe (principal, carte et prélèvement SEPA) : dashboard.stripe.com › Développeurs › Clés API.
+    'stripe_cle_secrete'    => '',   // sk_test_… pour les essais, puis sk_live_…
+    'stripe_secret_webhook' => '',   // whsec_… (Développeurs › Webhooks, adresse …/webhooks/stripe.php)
+    // PayPal (option) : developer.paypal.com › Apps & Credentials.
+    'paypal_client_id'  => '',
+    'paypal_secret'     => '',
+    'paypal_mode'       => 'sandbox',   // « sandbox » pour les essais, « live » ensuite
+    'paypal_webhook_id' => '',          // identifiant du webhook …/webhooks/paypal.php
 ];

@@ -7,7 +7,7 @@
 declare(strict_types=1);
 
 $prive = dirname(__DIR__) . '/prive';
-foreach (['noyau', 'messages', 'agenda', 'moteur', 'rapport', 'tarifs', 'acces', 'demo', 'app/vues', 'app/pages-accueil', 'app/pages-agenda', 'app/pages-gestion', 'app/pages-demo', 'app/pages-marque', 'app/pages-abonnement'] as $f) {
+foreach (['noyau', 'messages', 'agenda', 'moteur', 'rapport', 'tarifs', 'paiement', 'acces', 'demo', 'app/vues', 'app/pages-accueil', 'app/pages-agenda', 'app/pages-gestion', 'app/pages-demo', 'app/pages-marque', 'app/pages-abonnement'] as $f) {
     require $prive . '/' . $f . '.php';
 }
 

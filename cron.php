@@ -15,10 +15,18 @@ require __DIR__ . '/prive/messages.php';
 require __DIR__ . '/prive/agenda.php';
 require __DIR__ . '/prive/moteur.php';
 require __DIR__ . '/prive/rapport.php';
+require __DIR__ . '/prive/tarifs.php';
+require __DIR__ . '/prive/paiement.php';
 
 foreach (toutes('SELECT * FROM cliniques WHERE actif = 1 AND demo = 0') as $c) {
     foreach (executer_automatisations($c) as $ligne) {
         echo date('Y-m-d H:i') . " [{$c['slug']}] {$ligne}\n";
+    }
+    // Le 1er du mois à partir de 8 h : rapport mensuel, puis SMS au-delà du forfait du mois écoulé.
+    foreach ([rapports_mensuels($c), depassements_mensuels($c)] as $ligne) {
+        if ($ligne !== null) {
+            echo date('Y-m-d H:i') . " [{$c['slug']}] {$ligne}\n";
+        }
     }
 }
 // Conservation : patients sans rendez-vous depuis N mois (et sans liste d'attente active) supprimés.
