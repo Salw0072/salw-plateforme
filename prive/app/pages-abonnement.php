@@ -71,11 +71,11 @@ function page_abonnement(): void
     $metier = (string)$c['metier'];
 
     entete('Abonnement', 'abonnement');
-    titre('Abonnement', 'Formule, consommation du mois et prix, en euros hors taxes. Toutes les automatisations sont incluses dans toutes les formules : seul le volume change.');
+    titre('Abonnement', 'Formule, consommation du mois et prix, en euros hors taxes. Automatisations de base dans toutes les formules ; WhatsApp et réseaux sociaux à partir d\'Équipe.');
 
     // Formule et prix.
     $details = isset(FORMULES[$f])
-        ? 'Jusqu\'à ' . FORMULES[$f]['pros_max'] . ' ' . mot($c, 'pros') . ' · ' . number_format(FORMULES[$f]['sms'], 0, ',', ' ') . ' SMS inclus par mois'
+        ? 'Jusqu\'à ' . FORMULES[$f]['pros_max'] . ' ' . mot($c, 'pros') . ' · ' . number_format(FORMULES[$f]['sms'], 0, ',', ' ') . ' ' . libelle_messages($f) . (AVANTAGES_FORMULES[$f] ? ' · ' . implode(' · ', AVANTAGES_FORMULES[$f]) : '')
         : 'Au-delà de ' . FORMULES['structure']['pros_max'] . ' ' . mot($c, 'pros') . ' : volume et prix fixés au cas par cas';
     $mentions = [];
     if ((float)$c['prix_negocie'] > 0) {
@@ -93,15 +93,15 @@ function page_abonnement(): void
     // Consommation du mois.
     echo '<div class="grille-2"><section class="carte"><h2>Consommation de ' . h(mois_libelle($k['mois'])) . ($k['en_cours'] ? ' (en cours)' : '') . '</h2>';
     if ($k['quota']) {
-        echo jauge('SMS envoyés', $k['sms'], $k['quota'], 'SMS',
-            $k['depassement'] ? $k['depassement'] . ' SMS au-delà du forfait, soit ' . euros_centimes($k['cout_depassement']) . ' (' . euros_centimes(SMS_SUPPLEMENT) . ' l\'unité). Les envois ne sont jamais coupés.'
-                : ($k['en_cours'] && $k['projection'] > $k['quota'] ? 'À ce rythme : environ ' . $k['projection'] . ' SMS en fin de mois, soit ' . euros_centimes($k['cout_projete']) . ' de dépassement.'
-                : ($k['en_cours'] ? 'À ce rythme : environ ' . $k['projection'] . ' SMS en fin de mois, dans le forfait.' : 'Dans le forfait.')));
+        echo jauge('Messages envoyés', $k['sms'], $k['quota'], 'messages',
+            $k['depassement'] ? $k['depassement'] . ' messages au-delà du forfait, soit ' . euros_centimes($k['cout_depassement']) . ' (' . euros_centimes(SMS_SUPPLEMENT) . ' l\'unité). Les envois ne sont jamais coupés.'
+                : ($k['en_cours'] && $k['projection'] > $k['quota'] ? 'À ce rythme : environ ' . $k['projection'] . ' messages en fin de mois, soit ' . euros_centimes($k['cout_projete']) . ' de dépassement.'
+                : ($k['en_cours'] ? 'À ce rythme : environ ' . $k['projection'] . ' messages en fin de mois, dans le forfait.' : 'Dans le forfait.')));
         echo jauge(ucfirst(mot($c, 'pros')) . ' actifs', $k['pros'], $k['pros_max'], '', $k['pros'] > $k['pros_max'] ? 'Plus que prévu par la formule.' : '');
     } else {
-        echo '<p>' . $k['sms'] . ' SMS envoyés ce mois-ci · ' . $k['pros'] . ' ' . h(mot($c, 'pros')) . ' actifs.</p>';
+        echo '<p>' . $k['sms'] . ' messages envoyés ce mois-ci · ' . $k['pros'] . ' ' . h(mot($c, 'pros')) . ' actifs.</p>';
     }
-    echo '<p class="petit">Les SMS sont comptés comme l\'opérateur les facture : un message long ou accentué compte pour plusieurs SMS.' . (cfg('mode_envoi') !== 'reel' ? ' Mode simulation : les SMS simulés sont comptés pour montrer la consommation.' : '') . '</p>';
+    echo '<p class="petit">Les SMS sont comptés comme l\'opérateur les facture : un message long ou accentué compte pour plusieurs SMS. Un WhatsApp compte pour un message.' . (cfg('mode_envoi') !== 'reel' ? ' Mode simulation : les SMS simulés sont comptés pour montrer la consommation.' : '') . '</p>';
     if ($conseil) {
         echo '<div class="msg info">' . (($conseil['raison'] ?? '') === 'pros'
             ? 'Avec ' . $k['pros'] . ' ' . h(mot($c, 'pros')) . ', la formule adaptée est <b>' . h(libelle_formule($conseil['formule'])) . '</b>.'
@@ -110,12 +110,12 @@ function page_abonnement(): void
     echo '</section>';
 
     // Grille du métier.
-    echo '<section class="carte"><h2>Formules · ' . h(metier($c)['libelle']) . '</h2><div class="table"><table><thead><tr><th>Formule</th><th>' . h(ucfirst(mot($c, 'pros'))) . '</th><th>SMS inclus</th><th>Par mois</th><th>Mise en place</th></tr></thead><tbody>';
+    echo '<section class="carte"><h2>Formules · ' . h(metier($c)['libelle']) . '</h2><div class="table"><table><thead><tr><th>Formule</th><th>' . h(ucfirst(mot($c, 'pros'))) . '</th><th>Messages inclus</th><th>Réseaux sociaux</th><th>Par mois</th><th>Mise en place</th></tr></thead><tbody>';
     foreach (FORMULES as $cle => $d) {
-        echo '<tr' . ($cle === $f ? ' class="ligne-active"' : '') . '><td><b>' . h($d['libelle']) . '</b>' . ($cle === $f ? ' ' . badge('actuelle', 'vert') : '') . '</td><td>jusqu\'à ' . $d['pros_max'] . '</td><td>' . number_format($d['sms'], 0, ',', ' ') . '</td><td>' . h(euros((float)prix_formule($cle, $metier))) . '</td><td>' . h(euros((float)$d['mise_en_place'])) . '</td></tr>';
+        echo '<tr' . ($cle === $f ? ' class="ligne-active"' : '') . '><td><b>' . h($d['libelle']) . '</b>' . ($cle === $f ? ' ' . badge('actuelle', 'vert') : '') . '</td><td>jusqu\'à ' . $d['pros_max'] . '</td><td>' . number_format($d['sms'], 0, ',', ' ') . '</td><td>' . (AVANTAGES_FORMULES[$cle] ? implode('<br>', array_map('h', AVANTAGES_FORMULES[$cle])) : '<span class="gris">non inclus</span>') . '</td><td>' . h(euros((float)prix_formule($cle, $metier))) . '</td><td>' . h(euros((float)$d['mise_en_place'])) . '</td></tr>';
     }
-    echo '<tr' . ($f === 'sur_mesure' ? ' class="ligne-active"' : '') . '><td><b>Sur mesure</b></td><td>plus de ' . FORMULES['structure']['pros_max'] . '</td><td>à définir</td><td>sur devis</td><td>sur devis</td></tr></tbody></table></div>'
-        . '<p class="petit">Prix avec engagement de 12 mois ; sans engagement : +' . (int)(MAJORATION_SANS_ENGAGEMENT * 100) . ' %. SMS au-delà du forfait : ' . euros_centimes(SMS_SUPPLEMENT) . ' l\'unité.'
+    echo '<tr' . ($f === 'sur_mesure' ? ' class="ligne-active"' : '') . '><td><b>Sur mesure</b></td><td>plus de ' . FORMULES['structure']['pros_max'] . '</td><td>à définir</td><td>' . implode('<br>', array_map('h', AVANTAGES_FORMULES['sur_mesure'])) . '</td><td>sur devis</td><td>sur devis</td></tr></tbody></table></div>'
+        . '<p class="petit">Prix avec engagement de 12 mois ; sans engagement : +' . (int)(MAJORATION_SANS_ENGAGEMENT * 100) . ' %. Message au-delà du forfait : ' . euros_centimes(SMS_SUPPLEMENT) . ' l\'unité.'
         . (est_salw() ? ' Coefficient du métier : ×' . str_replace('.', ',', (string)coef_metier($metier)) . ' (valeur d\'un rendez-vous), la mise en place n\'est pas ajustée.' : '') . '</p></section></div>';
 
     // Historique.
@@ -161,11 +161,11 @@ function cartes_formules(string $metier, string $choisie, bool $auto = false): s
     $pros = 0;
     foreach (FORMULES as $f => $d) {
         $essai = in_array($f, FORMULES_AVEC_ESSAI, true) ? [ESSAI_JOURS . ' jours d\'essai gratuit'] : [];
-        $h .= $carte($f, $d['libelle'], array_merge([($pros + 1) . ' à ' . $d['pros_max'] . ' agendas', number_format($d['sms'], 0, ',', ' ') . ' SMS inclus par mois', 'Mise en place : ' . euros((float)$d['mise_en_place']), 'Toutes les automatisations'], $essai),
+        $h .= $carte($f, $d['libelle'], array_merge([($pros + 1) . ' à ' . $d['pros_max'] . ' agendas', number_format($d['sms'], 0, ',', ' ') . ' ' . libelle_messages($f), 'Mise en place : ' . euros((float)$d['mise_en_place']), 'Automatisations de base'], AVANTAGES_FORMULES[$f], $essai),
             euros((float)prix_formule($f, $metier)), 'HT par mois, engagement 12 mois');
         $pros = $d['pros_max'];
     }
-    $h .= $carte('sur_mesure', 'Sur mesure', array_merge(['Plus de ' . FORMULES['structure']['pros_max'] . ' agendas ou plusieurs sites', 'Volume de SMS à définir', 'Mise en place sur devis'],
+    $h .= $carte('sur_mesure', 'Sur mesure', array_merge(['Plus de ' . FORMULES['structure']['pros_max'] . ' agendas ou plusieurs sites', 'Volume de messages à définir', 'Mise en place sur devis'], AVANTAGES_FORMULES['sur_mesure'],
         in_array('sur_mesure', FORMULES_AVEC_ESSAI, true) ? [ESSAI_JOURS . ' jours d\'essai gratuit'] : []), '', 'Prix à fixer : saisissez le prix négocié');
     if ($auto) {
         $h .= $carte('', 'Automatique', ['Suit le nombre d\'agendas actifs', 'Change seule si l\'équipe grandit'], '', 'Formule déduite de la taille de l\'équipe');

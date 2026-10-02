@@ -430,7 +430,7 @@ function facturer_depassement(array $c, string $mois): ?string
     if (valeur('SELECT id FROM paiements WHERE ref = ?', [$ref])) {
         return null;
     }
-    $libelle = 'SMS au-delà du forfait · ' . mois_libelle($mois) . ' · ' . $k['depassement'] . ' SMS';
+    $libelle = 'Messages au-delà du forfait · ' . mois_libelle($mois) . ' · ' . $k['depassement'] . ' messages';
     if ($c['paiement_fournisseur'] === 'stripe' && in_array($c['paiement_statut'], ['actif', 'impaye'], true) && stripe_actif()) {
         stripe('POST', '/v1/invoiceitems', ['customer' => (string)$c['paiement_client_ref'], 'amount' => centimes($k['cout_depassement']), 'currency' => 'eur',
             'description' => $libelle, 'metadata' => ['clinique_id' => (string)$c['id'], 'mois' => $mois]], $ref);

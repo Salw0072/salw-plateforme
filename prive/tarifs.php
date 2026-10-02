@@ -2,9 +2,11 @@
 /**
  * Plateforme SALW : formules d'abonnement au volume, prix par métier, consommation de chaque client.
  *
- * Toutes les automatisations sont incluses dans toutes les formules : seul le volume change
- * (nombre de professionnels, SMS inclus par mois). Le prix de base est ajusté par un coefficient
- * selon la valeur d'un rendez-vous dans le métier.
+ * Les automatisations de base sont incluses dans toutes les formules ; le volume change (nombre de
+ * professionnels, messages inclus par mois) et les réseaux sociaux s'ajoutent à partir d'Équipe
+ * (AVANTAGES_FORMULES, affichage commercial : rien n'est bloqué techniquement). Le prix de base est
+ * ajusté par un coefficient selon la valeur d'un rendez-vous dans le métier.
+ * Un WhatsApp compte pour un message du forfait, comme un SMS d'un segment.
  *
  * Mêmes paramètres que la page Tarifs du site Conseiller Sam (TARIFS dans index.html) : à modifier ensemble.
  * Prix en euros hors taxes.
@@ -21,6 +23,20 @@ const FORMULES = [
 
 /** Coefficient de prix par métier, selon la valeur d'un rendez-vous (la mise en place n'est pas ajustée : c'est le même travail). */
 const COEF_METIERS = ['sante' => 1.0, 'coach' => 1.0, 'artisan' => 1.1, 'garage' => 1.2, 'ecole' => 1.3, 'immobilier' => 1.4, 'juridique' => 1.4];
+
+/** Ce que chaque formule ajoute à la précédente (cartes, grille, site Sam : TARIFS.formules[].plus). */
+const AVANTAGES_FORMULES = [
+    'essentiel'  => [],
+    'equipe'     => ['Rappels et confirmations par WhatsApp', 'Publications automatiques Facebook et Instagram'],
+    'structure'  => ['Rappels et confirmations par WhatsApp', 'Publications automatiques Facebook, Instagram et LinkedIn', 'Prospects des publicités contactés automatiquement'],
+    'sur_mesure' => ['Rappels et confirmations par WhatsApp', 'Publications automatiques Facebook, Instagram et LinkedIn', 'Prospects des publicités contactés automatiquement'],
+];
+
+/** Libellé du forfait de messages : WhatsApp compris à partir d'Équipe. */
+function libelle_messages(string $formule): string
+{
+    return AVANTAGES_FORMULES[$formule] ?? [] ? 'messages inclus par mois (SMS ou WhatsApp)' : 'SMS inclus par mois';
+}
 
 const SMS_SUPPLEMENT = 0.15;          // € HT par SMS au-delà du forfait (coût Twilio : environ 0,07 € en France, 0,10 € en Belgique)
 const MAJORATION_SANS_ENGAGEMENT = 0.20;
@@ -90,9 +106,10 @@ function consommation(array $c, ?string $mois = null): array
     $debut = new DateTimeImmutable($mois . '-01 00:00:00', $tz);
     $fin = $debut->modify('first day of next month');
     $sms = 0;
-    foreach (toutes("SELECT contenu FROM messages WHERE clinique_id = ? AND canal = 'sms' AND statut != 'echec' AND envoye_le >= ? AND envoye_le < ?",
+    // SMS comptés en segments, comme l'opérateur ; un WhatsApp compte pour un message.
+    foreach (toutes("SELECT canal, contenu FROM messages WHERE clinique_id = ? AND canal IN ('sms', 'whatsapp') AND statut != 'echec' AND envoye_le >= ? AND envoye_le < ?",
         [$c['id'], iso($debut->getTimestamp()), iso($fin->getTimestamp())]) as $m) {
-        $sms += segments_sms($m['contenu']);
+        $sms += $m['canal'] === 'whatsapp' ? 1 : segments_sms($m['contenu']);
     }
     $f = formule_client($c);
     $quota = FORMULES[$f]['sms'] ?? 0;
