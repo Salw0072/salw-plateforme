@@ -148,6 +148,13 @@ function creer_rdv(array $c, array $patient, int $praticienId, ?int $typeId, int
             evenement($c, 'appel_rattrape', $patient['prenom'] . ' ' . $patient['nom'], (float)$c['valeur_consultation']);
         }
     }
+    // Prospect d'une publicité Facebook ou Instagram qui réserve : converti.
+    $prospect = une("SELECT * FROM prospects WHERE clinique_id = ? AND statut != 'rdv' AND ((telephone != '' AND telephone = ?) OR (email != '' AND email = ?)) ORDER BY id DESC",
+        [$c['id'], (string)$patient['telephone'], (string)$patient['email']]);
+    if ($prospect) {
+        executer("UPDATE prospects SET statut = 'rdv', rdv_id = ? WHERE id = ?", [$id, $prospect['id']]);
+        evenement($c, 'prospect_converti', $patient['prenom'] . ' ' . $patient['nom'] . ' · ' . ucfirst($prospect['source']), (float)$c['valeur_consultation']);
+    }
     if (reglages($c)['confirmation']['actif']) {
         envoyer_patient($c, $patient, 'confirmation', rediger($c, 'confirmation', vars_rdv($c, $rdv, $patient)), $id);
     }

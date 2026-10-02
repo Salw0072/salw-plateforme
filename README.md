@@ -222,3 +222,20 @@ Le client paie depuis sa page **Abonnement** : **Stripe** (principal : carte ou 
 **Points à valider avec ton comptable** : les montants sont payés hors taxes, tels quels. Facturer depuis la Norvège des entreprises de l'UE relève en principe de l'autoliquidation de la TVA, mais un client norvégien paierait la MVA (25 %). Stripe Tax peut ajouter la taxe automatiquement si besoin. Les virements arrivent sur ton compte Stripe ou PayPal en euros, convertis en couronnes si ton compte bancaire est en NOK.
 
 **Testé** contre un faux Stripe et un faux PayPal locaux (comportement et réponses de leurs API) : paiement, retour, notifications signées, rejouées et falsifiées, impayé, résiliation, portail, changement de prix, SMS supplémentaires, démos bloquées, PHP 8.3 et 7.4. **Non testé contre les vrais services** : à faire en mode test dès que les comptes existent.
+
+## Réseaux sociaux et WhatsApp
+
+Espace client › **Réseaux sociaux** (gérant et SALW). Quatre branchements par client : WhatsApp Business (Cloud API de Meta), page Facebook, compte Instagram professionnel, page LinkedIn. Les jetons ne s'affichent jamais une fois enregistrés ; le bouton « Tester » vérifie chaque connexion.
+
+- **WhatsApp à la place du SMS** : confirmations, rappels, avis, relances et réactivation partent par WhatsApp quand le patient a coché l'accord sur la page de réservation et que le modèle est approuvé. Sinon, ou en cas d'échec, le SMS ou l'e-mail prend le relais. « STOP » sur WhatsApp retire l'accord. Statuts suivis : envoyé, distribué, lu, échec.
+- **Publications automatiques** : un message de la semaine le lundi à partir de 9 h, et un « créneau de dernière minute » quand un RDV des prochaines 48 h est annulé (une fois par jour au plus). Publication manuelle possible à tout moment. Une publication n'est jamais envoyée deux fois.
+- **Prospects des publicités** : un formulaire de publicité Facebook ou Instagram crée le prospect et le patient, puis lui envoie le lien de réservation (WhatsApp s'il a accepté, sinon SMS ou e-mail). Quand il réserve, il passe en « RDV » et sa valeur entre dans le rapport mensuel (« prospect converti »).
+
+**Mise en service** (une fois pour SALW, puis par client) :
+1. Créer une application Meta (developers.facebook.com), type Business, produits WhatsApp, Webhooks, Connexion Facebook. Faire la **vérification d'entreprise** de SALW, puis l'**App Review** pour `pages_manage_posts`, `instagram_content_publish`, `leads_retrieval`, `whatsapp_business_messaging`. Compter une à quatre semaines.
+2. `prive/config.php` : `meta_app_secret` (clé secrète de l'application) et `meta_jeton_verification` (texte au choix).
+3. Webhooks : `https://<domaine>/webhooks/meta.php`, objet « page » champ « leadgen », objet « whatsapp_business_account » champ « messages ».
+4. Pour chaque client : créer dans WhatsApp Manager les modèles listés sur la page Réseaux sociaux (nom exact, texte exact, langue français), puis coller les identifiants et jetons (jeton d'utilisateur système, sans expiration).
+5. LinkedIn : application LinkedIn avec « Community Management API » (accès à demander), jeton de l'organisation **à renouveler tous les 60 jours**.
+
+**À savoir** : Instagram n'accepte que des images JPEG (photo de couverture ou logo du client en JPEG). Les messages WhatsApp sont facturés par Meta à chaque modèle (catégorie utilitaire moins chère que marketing), en dehors du quota SMS de l'offre. LinkedIn ne permet ni messages ni prospects automatiques. **Testé** contre un faux Meta et un faux LinkedIn locaux (envois, signatures vraies et fausses, STOP, prospects rejoués, publications idempotentes), PHP 8.3 et 7.4. **Non testé contre les vrais services.**

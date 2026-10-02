@@ -40,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $erreur = 'Prénom, nom et numéro de mobile valide sont nécessaires (pour la confirmation et les rappels).';
         } elseif (($_POST['action'] ?? '') === 'attente') {
             $p = patient_trouver_ou_creer($c, $prenom, $nom, $tel, '', !empty($_POST['relance']));
+                $p = accord_whatsapp($c, $p, !empty($_POST['whatsapp']));
             inserer('INSERT INTO attente (clinique_id, patient_id, praticien_id, type_id, preference, cree_le) VALUES (?, ?, ?, ?, ?, ?)',
                 [$c['id'], $p['id'], $prat, $type['id'] ?? null, mb_substr(trim((string)($_POST['preference'] ?? '')), 0, 120), iso(maintenant($c))]);
             evenement($c, 'attente_inscription', $prenom . ' ' . $nom);
@@ -53,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $erreur = $errQ;
             } else {
                 $p = patient_trouver_ou_creer($c, $prenom, $nom, $tel, '', !empty($_POST['relance']));
+                $p = accord_whatsapp($c, $p, !empty($_POST['whatsapp']));
                 [$rdv, $err] = creer_rdv($c, $p, (int)$praticienId, (int)$type['id'], ts($debut), (int)$type['duree'], 'en_ligne', null, $infos);
                 if ($rdv) {
                     $pr = une('SELECT * FROM praticiens WHERE id = ?', [$rdv['praticien_id']]);
@@ -122,7 +124,18 @@ function champs_patient(array $c): string
 {
     return '<div class="duo"><label>Prénom<input name="prenom" required maxlength="60" autocomplete="given-name"></label><label>Nom<input name="nom" required maxlength="60" autocomplete="family-name"></label></div>'
         . '<label>Mobile<input name="telephone" type="tel" required autocomplete="tel" placeholder="06 12 34 56 78"><small>Pour la confirmation et les rappels. Aucune information confidentielle n\'est envoyée par SMS.</small></label>'
+        . (connexion($c, 'whatsapp') ? '<label class="case"><input type="checkbox" name="whatsapp" value="1"> Je préfère recevoir ma confirmation et mes rappels sur WhatsApp (sinon par SMS)</label>' : '')
         . '<label class="case"><input type="checkbox" name="relance" value="1"> J\'accepte que ' . h($c['nom']) . ' me propose, de temps en temps, de reprendre rendez-vous (désinscription par STOP)</label>';
+}
+
+/** Enregistre l'accord WhatsApp donné à la réservation (une case non cochée ne retire pas un accord déjà donné). */
+function accord_whatsapp(array $c, array $p, bool $accord): array
+{
+    if ($accord && connexion($c, 'whatsapp')) {
+        executer('UPDATE patients SET whatsapp = 1 WHERE id = ?', [$p['id']]);
+        $p['whatsapp'] = 1;
+    }
+    return $p;
 }
 
 function array_key_first_compat(array $a)

@@ -56,6 +56,7 @@ function entete(string $titre, string $actif): void
         ['automatisations', 'Automatisations', 'M11 2L4 11h5l-1 7 7-9h-5z', peut_gerer()],
         ['clinique', mot($cv, 'Structure'), 'M3 17V7l7-4 7 4v10M8 17v-5h4v5', peut_gerer()],
         ['integration', 'Page publique', 'M3 4h14v12H3zM3 7.5h14M6 11h4', peut_gerer()],
+        ['reseaux', 'Réseaux sociaux', 'M5 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM15 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM15 13a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM6.8 9l6.4-3.2M6.8 11l6.4 3.2', peut_gerer()],
         ['rapport', 'Rapport mensuel', 'M4 16V9M8.5 16V5M13 16v-4M17 16H3', peut_gerer()],
         ['abonnement', 'Abonnement', 'M3 6h14v9H3zM3 9h14M6 12.5h3', peut_gerer()],
         ['equipe', 'Équipe', 'M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM4 17c.6-3.4 3-5 6-5s5.4 1.6 6 5', peut_gerer()],
@@ -115,7 +116,7 @@ function bulle_message(array $c, array $m, bool $avecEntete = true): string
     $patient = $m['patient_id'] ? une('SELECT prenom, nom FROM patients WHERE id = ?', [$m['patient_id']]) : null;
     return '<article class="tel">' . ($avecEntete ? '<div class="tel-tete"><b>' . h($patient ? $patient['prenom'] . ' ' . $patient['nom'] : telephone_lisible($m['destinataire'])) . '</b><span>' . h($m['canal'] === 'sms' ? telephone_lisible($m['destinataire']) : $m['destinataire']) . '</span></div>' : '')
         . '<div class="tel-corps"><span class="tel-exp">' . h($c['nom']) . '</span><p class="sms">' . $texte . '</p><span class="tel-meta">' . h(LIBELLES_MESSAGES[$m['type']] ?? $m['type']) . ' · ' . h(local($c, $m['envoye_le'], 'd/m H:i'))
-        . ' · ' . ($m['canal'] === 'sms' ? segments_sms($m['contenu']) . ' SMS' : 'e-mail') . ' · ' . ($m['statut'] === 'simule' ? 'simulé' : ($m['statut'] === 'envoye' ? 'envoyé' : 'échec')) . '</span></div></article>';
+        . ' · ' . ($m['canal'] === 'sms' ? segments_sms($m['contenu']) . ' SMS' : ($m['canal'] === 'whatsapp' ? 'WhatsApp' : 'e-mail')) . ' · ' . (['simule' => 'simulé', 'envoye' => 'envoyé', 'distribue' => 'distribué', 'lu' => 'lu', 'echec' => 'échec'][$m['statut']] ?? $m['statut']) . '</span></div></article>';
 }
 
 function ton_statut(string $s): string

@@ -45,4 +45,10 @@ return [
     'paypal_secret'     => '',
     'paypal_mode'       => 'sandbox',   // « sandbox » pour les essais, « live » ensuite
     'paypal_webhook_id' => '',          // identifiant du webhook …/webhooks/paypal.php
+
+    // Réseaux sociaux et WhatsApp (application Meta de SALW, developers.facebook.com).
+    'meta_app_secret'         => '',   // Paramètres de l'application › Général › Clé secrète : vérifie les notifications
+    'meta_jeton_verification' => '',   // texte libre à recopier dans Meta lors de la déclaration du webhook …/webhooks/meta.php
+    'meta_graph_version'      => 'v23.0',
+    'linkedin_version'        => '202608',
 ];

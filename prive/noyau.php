@@ -49,7 +49,7 @@ function db(): PDO
 function schema(PDO $pdo): void
 {
     $version = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
-    if ($version >= 9) {
+    if ($version >= 10) {
         return;
     }
     if ($version >= 1) {
@@ -74,7 +74,10 @@ function schema(PDO $pdo): void
         if ($version < 8) {
             migration_8($pdo);
         }
-        migration_9($pdo);
+        if ($version < 9) {
+            migration_9($pdo);
+        }
+        migration_10($pdo);
         return;
     }
     $pdo->exec(<<<'SQL'
@@ -156,6 +159,7 @@ SQL
     migration_7($pdo);
     migration_8($pdo);
     migration_9($pdo);
+    migration_10($pdo);
 }
 
 /** Version 2 : plateforme multi-métier (métier du client, questions de réservation, devis). */
@@ -271,6 +275,34 @@ ALTER TABLE cliniques ADD COLUMN paiement_essai_fin TEXT DEFAULT '';
 ALTER TABLE cliniques ADD COLUMN paiement_essai_utilise INTEGER DEFAULT 0;
 ALTER TABLE cliniques ADD COLUMN paiement_mise_en_place_ref TEXT DEFAULT '';
 PRAGMA user_version = 9;
+SQL
+    );
+}
+
+/** Version 10 : réseaux sociaux et WhatsApp (connexions, accord WhatsApp des clients, publications, prospects des publicités). */
+function migration_10(PDO $pdo): void
+{
+    $pdo->exec(<<<'SQL'
+CREATE TABLE IF NOT EXISTS reseaux (
+  clinique_id INTEGER NOT NULL REFERENCES cliniques(id) ON DELETE CASCADE, reseau TEXT NOT NULL,
+  identifiant TEXT DEFAULT '', jeton TEXT DEFAULT '', nom TEXT DEFAULT '', expire_le TEXT DEFAULT '', maj TEXT DEFAULT '',
+  PRIMARY KEY (clinique_id, reseau)
+);
+ALTER TABLE cliniques ADD COLUMN reseaux_options TEXT DEFAULT '{}';
+ALTER TABLE patients ADD COLUMN whatsapp INTEGER DEFAULT 0;
+ALTER TABLE messages ADD COLUMN ref TEXT DEFAULT '';
+CREATE TABLE IF NOT EXISTS publications (
+  id INTEGER PRIMARY KEY, clinique_id INTEGER NOT NULL REFERENCES cliniques(id) ON DELETE CASCADE,
+  reseau TEXT NOT NULL, origine TEXT NOT NULL, cle TEXT NOT NULL, texte TEXT NOT NULL, lien TEXT DEFAULT '', image TEXT DEFAULT '',
+  statut TEXT NOT NULL, ref TEXT DEFAULT '', erreur TEXT DEFAULT '', cree_le TEXT NOT NULL, UNIQUE (clinique_id, reseau, cle)
+);
+CREATE TABLE IF NOT EXISTS prospects (
+  id INTEGER PRIMARY KEY, clinique_id INTEGER NOT NULL REFERENCES cliniques(id) ON DELETE CASCADE,
+  source TEXT NOT NULL, ref TEXT NOT NULL UNIQUE, formulaire TEXT DEFAULT '', prenom TEXT DEFAULT '', nom TEXT DEFAULT '',
+  telephone TEXT DEFAULT '', email TEXT DEFAULT '', whatsapp INTEGER DEFAULT 0, donnees TEXT DEFAULT '{}',
+  statut TEXT DEFAULT 'nouveau', canal TEXT DEFAULT '', recu_le TEXT NOT NULL, contacte_le TEXT DEFAULT '', rdv_id INTEGER
+);
+PRAGMA user_version = 10;
 SQL
     );
 }
@@ -432,6 +464,7 @@ function textes_defaut(?array $c = null): array
         'absence'       => "{prenom}, on ne vous a pas vu. Reprenez RDV quand vous voulez : {lien}",
         'reactivation'  => "{structure} vous propose un point : {lien} Répondez STOP pour arrêter",
         'relance_devis' => "Votre devis : {devis}. Une question ? Acceptez en 1 clic : {lien}",
+        'prospect'      => "Merci {prenom} ! Réservez votre RDV chez {structure} : {lien}",
     ];
     return $c ? array_merge($t, metier($c)['textes']) : $t;
 }

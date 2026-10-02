@@ -10,6 +10,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/reseaux.php';
+
 /** Remplit un modèle de message : {prenom} {date} {heure} {clinique} {praticien} {adresse} {lien}. */
 function rediger(array $c, string $type, array $vars): string
 {
@@ -19,7 +21,16 @@ function rediger(array $c, string $type, array $vars): string
     $sortie = preg_replace_callback('/\{([a-z]+)\}/', function ($m) use ($vars) {
         return array_key_exists($m[1], $vars) ? (string)$vars[$m[1]] : $m[0];
     }, $modele);
-    return trim(preg_replace('/\s{2,}/', ' ', $sortie));
+    $texte = trim(preg_replace('/\s{2,}/', ' ', $sortie));
+    // Valeurs gardées pour WhatsApp, dont les modèles reçoivent les variables une par une.
+    $GLOBALS['salw_variables'][md5($texte)] = $vars;
+    return $texte;
+}
+
+/** Variables utilisées pour rédiger ce texte (voir rediger). */
+function vars_message(string $texte): array
+{
+    return $GLOBALS['salw_variables'][md5($texte)] ?? [];
 }
 
 /**
@@ -51,6 +62,13 @@ function envoyer(array $c, ?array $patient, string $destinataire, string $type, 
 /** Envoie au canal du patient : mobile en priorité, sinon e-mail. */
 function envoyer_patient(array $c, array $patient, string $type, string $texte, ?int $rdvId = null): int
 {
+    // WhatsApp si le client l'a accepté et que la structure est connectée ; en cas d'échec, SMS.
+    if (whatsapp_possible($c, $patient, $type)) {
+        $id = envoyer_whatsapp($c, $patient, $type, $texte, $rdvId);
+        if ($id) {
+            return $id;
+        }
+    }
     $dest = $patient['telephone'] !== '' ? $patient['telephone'] : $patient['email'];
     return $dest === '' ? 0 : envoyer($c, $patient, $dest, $type, $texte, $rdvId);
 }

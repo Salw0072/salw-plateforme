@@ -7,7 +7,7 @@
 declare(strict_types=1);
 
 $prive = dirname(__DIR__) . '/prive';
-foreach (['noyau', 'messages', 'agenda', 'moteur', 'rapport', 'tarifs', 'paiement', 'acces', 'demo', 'app/vues', 'app/pages-accueil', 'app/pages-agenda', 'app/pages-gestion', 'app/pages-demo', 'app/pages-marque', 'app/pages-abonnement'] as $f) {
+foreach (['noyau', 'messages', 'agenda', 'moteur', 'rapport', 'tarifs', 'paiement', 'acces', 'demo', 'app/vues', 'app/pages-accueil', 'app/pages-agenda', 'app/pages-gestion', 'app/pages-demo', 'app/pages-marque', 'app/pages-abonnement', 'app/pages-reseaux'] as $f) {
     require $prive . '/' . $f . '.php';
 }
 
@@ -58,6 +58,6 @@ $pages = [
     'tableau' => 'page_tableau', 'agenda' => 'page_agenda', 'nouveau' => 'page_nouveau', 'patients' => 'page_patients', 'attente' => 'page_attente',
     'appels' => 'page_appels', 'messages' => 'page_messages', 'devis' => 'page_devis', 'automatisations' => 'page_automatisations', 'clinique' => 'page_clinique',
     'equipe' => 'page_equipe', 'cliniques' => 'page_cliniques', 'demo' => 'page_demo', 'compte' => 'page_compte',
-    'integration' => 'page_integration', 'rapport' => 'page_rapport', 'abonnement' => 'page_abonnement',
+    'integration' => 'page_integration', 'rapport' => 'page_rapport', 'abonnement' => 'page_abonnement', 'reseaux' => 'page_reseaux',
 ];
 ($pages[$page] ?? 'page_tableau')();

@@ -238,3 +238,12 @@ tr.ligne-active td{background:var(--vert-c)}
 .recap-paiement .essai{border-color:var(--bleu,#1D4F91);background:var(--bleu-c,#E6EEF9)}
 .recap-paiement .essai b{color:var(--bleu,#1D4F91)}
 @media (max-width:760px){.recap-paiement.trois{grid-template-columns:1fr}}
+/* Réseaux sociaux */
+.reseaux-grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.reseau-carte{border:1px solid var(--trait);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.reseau-carte h3{margin:0;font-size:16px;color:var(--nuit)}
+.reseau-carte p{margin:0}
+.cases-ligne{display:flex;flex-wrap:wrap;gap:6px 18px}
+.bloc-option{border:1px solid var(--trait);border-radius:12px;padding:10px 14px 14px;margin:0;display:flex;flex-direction:column;gap:10px}
+.bloc-option legend{padding:0 6px;font-weight:700}
+.modele-texte{font-size:13.5px}

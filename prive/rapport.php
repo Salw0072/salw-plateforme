@@ -10,7 +10,7 @@ declare(strict_types=1);
 
 const LIBELLES_MESSAGES = [
     'confirmation' => 'Confirmation', 'rappel_j2' => 'Rappel 48 h', 'rappel_j1' => 'Rappel 24 h', 'rappel_h3' => 'Rappel 3 h', 'offre_attente' => "Offre liste d'attente",
-    'appel_manque' => 'Appel manqué', 'avis' => 'Demande d\'avis', 'absence' => 'Après absence', 'reactivation' => 'Réactivation', 'relance_devis' => 'Relance de devis',
+    'appel_manque' => 'Appel manqué', 'avis' => 'Demande d\'avis', 'absence' => 'Après absence', 'reactivation' => 'Réactivation', 'relance_devis' => 'Relance de devis', 'prospect' => 'Prospect des publicités',
 ];
 
 const MOIS_FR = ['', 'janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -62,7 +62,7 @@ function indicateurs_entre(array $c, int $debut, int $fin, int $avant): array
         'avis_clics'  => (int)valeur("SELECT COUNT(*) FROM evenements WHERE clinique_id = ? AND type = 'avis_clic' AND t BETWEEN ? AND ?", [$id, $d, $n]),
         'messages'    => (int)valeur('SELECT COUNT(*) FROM messages WHERE clinique_id = ? AND envoye_le BETWEEN ? AND ?', [$id, $d, $n]),
         'par_type'    => $parType,
-        'valeur'      => (float)valeur("SELECT COALESCE(SUM(valeur), 0) FROM evenements WHERE clinique_id = ? AND type IN ('creneau_recupere', 'appel_rattrape', 'devis_relance_accepte') AND t BETWEEN ? AND ?", [$id, $d, $n]),
+        'valeur'      => (float)valeur("SELECT COALESCE(SUM(valeur), 0) FROM evenements WHERE clinique_id = ? AND type IN ('creneau_recupere', 'appel_rattrape', 'devis_relance_accepte', 'prospect_converti') AND t BETWEEN ? AND ?", [$id, $d, $n]),
         'devis_acceptes' => (int)valeur("SELECT COUNT(*) FROM evenements WHERE clinique_id = ? AND type = 'devis_relance_accepte' AND t BETWEEN ? AND ?", [$id, $d, $n]),
     ];
 }
